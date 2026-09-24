@@ -658,6 +658,11 @@ def build_help(wb):
                             "• Dòng 33-35: tọa độ trục, KC trục-trục tính từ bề rộng gối + Ltt + lệch trục; nhập KC trục mặt bằng (dòng 34) → Ltt suy ra (dòng 35, vàng nếu lệch Ltt đang nhập).\n"
                             "• Dòng 37-42: kiểm tra As (cm²) bố trí / yêu cầu – thép chạy suốt hiệu dụng (có tính đổi thép dòng 23/25) + tăng cường lớp 1..5; gối tách trái/phải.\n"
                             "• Dòng 44 + dòng 9: báo thiếu KT gối, thiếu tên trục, thiếu đai, Ltt sai, nhịp đứt quãng, ký hiệu thép sai (ô thép sai tô đỏ)."),
+        ("THÉP CHỜ TRÊN BẢN VẼ", "• QS_VEDAM: nét khuất dầm zone sau, đường MẠCH NGỪNG, dim L chờ (chờ thẳng) hoặc ký hiệu COUPLER.\n"
+                                 "• QS_SHOPDAM: thanh chờ thẳng được cắt đủ chiều dài có đoạn chờ; dải shop có đường MẠCH NGỪNG; đầu thanh coupler vẽ ký hiệu,\n"
+                                 "  bảng thống kê thêm dòng COUPLER theo đường kính (số cái)."),
+        ("BỐ CỤC SHOP", "Mặc định giống bản vẽ DCE: shop thép TRÊN phía trên MC dọc; dưới MC dọc là dải THÉP GIÁ sát trên dải THÉP DƯỚI;\n"
+                        "shop THÉP ĐAI bên phải khung shop trên (1:1, dim từng đoạn, tag SH / L). Thay đổi ở QS_DAMSET → trang 5 (Bố cục shop)."),
         ("KÝ HIỆU THÉP", "3t28 = 3 thanh Ø28 (t, T, d, f, Ø, %%c đều được). 2t28+1t25 = nhiều loại. '-' = không có.\n"
                          "Gối: 3t28;5t28 = trái 3t28 / phải 5t28 ; ;2t28 = chỉ bên phải ; 2t25; = chỉ bên trái."),
         ("DÒNG 11 (B11 / lưới)", HELP_ROW[11]), ("DÒNG 12 (B12 / lưới)", HELP_ROW[12]),
