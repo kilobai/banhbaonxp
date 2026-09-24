@@ -169,7 +169,7 @@ HELP_ROW = {
     26: "DÒNG 26\n• GỐI: tên trục (nhiều dòng thì lấy dòng cuối).\n• NHỊP: thép đai Ø-bước gối/bước nhịp, vd 10-100/200; 10-100 = rải đều.",
     27: "DÒNG 27\n• GỐI: độ lệch trục so với tim gối (mm).\n• NHỊP: đai trong 6-100/200 (để trống: tự thêm khi lớp 1 trên ≥ 4 thanh). Kiểu đai trong chọn ở QS_DAMSET trang 2:\n  1 nhánh tại mỗi thanh giữa (như DCE) hoặc đai kín ôm thanh 2 và n-1.\n  và/hoặc mối nối bắt buộc: T, B, T/B, TL, TR, BL, BR. Ví dụ 6-100/200/B.",
     28: "DÒNG 28\n• GỐI: KT dầm giao nằm trong NHỊP BÊN PHẢI gối (400x600 hoặc 400x600/300x600).\n• NHỊP: T.LINK = đai xoắn (U bao + C mũ). Mã giật sàn DCE (T.LINK/-100/-200/1) được lưu, chưa vẽ.",
-    29: "DÒNG 29\n• GỐI: khoảng cách từ TIM gối tới tim dầm giao trong nhịp phải (2000 hoặc 2000/5000).\n• NHỊP: đai gia cường tại dầm giao: 8t8a50 (chia 2 bên), 8t8a50L / 8t8a50R (1 bên), 8u8a50 (chữ u = đai U).",
+    29: "DÒNG 29\n• GỐI: khoảng cách từ TIM gối tới tim dầm giao trong nhịp phải (2000 hoặc 2000/5000).\n• NHỊP: đai gia cường tại dầm giao: 8t8a50 (chia 2 bên), 8t8a50L / 8t8a50R (1 bên), 8u8a50 (chữ u = đai U).\n  Mỗi đai gia cường có thêm bộ đai trong / đai 1 nhánh như đai thường (tắt được ở QS_DAMSET trang 2).",
     30: "DÒNG 30 (chỉ cột NHỊP): thép vai bò tại dầm giao, vd 2t16.",
 }
 
