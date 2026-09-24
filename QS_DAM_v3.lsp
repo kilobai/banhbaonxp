@@ -11,6 +11,8 @@
 ;;;        - Thep cho 2 dau tren shop: duong MACH NGUNG, ky hieu COUPLER, dem coupler vao bang thong ke.
 ;;;        - Coupler co the keo ra ngoai mep dam 1 doan, so le 2 nhom: L cho = "100/300" (1/2 so thanh 100,
 ;;;          1/2 so thanh 300) ; "AUTO" -> QS_DAMSET trang 3 (CPLL).
+;;;        - Ten dam cho noi (Excel S8 / T8, V1: CHO_TEN): ghi "THEP CHO / COUPLER NOI DAM ..." tren MC doc,
+;;;          dai shop va ten dam trong vung net khuat zone sau. Sua ma unicode chu MACH NGUNG tren shop.
 ;;;        - Doc sheet nhap lieu QS_DAM_V2 (QS_DAM_NhapLieu.xlsx moi): bo cuc o giong het sheet
 ;;;          DCE_Pro_Beam (dan so lieu DCE sang dung duoc ngay) + thep cho 2 dau (S3:T7),
 ;;;          tai san / san lat (Y2:Y3). Van doc sheet QS_DAM_V1 va DCE_Pro_Beam nhu cu.
@@ -636,14 +638,24 @@
         ((= (type x) 'STR) (QSD:Trim (QSD:Replace x "_x000D_" "")))
         (T "")))
 
-;; thep cho 1 dau dam: (kieu lop thanh L sole) nhu tren Excel -> "KIEU|LOP|THEP|L|SOLE"
+;; thep cho 1 dau dam: (kieu lop thanh L sole [ten dam noi]) nhu tren Excel -> "KIEU|LOP|THEP|L|SOLE|TEN"
 (defun QSD:ChoStr (l / kd th so)
   (setq kd (strcase (nth 0 l)) th (strcase (nth 2 l)) so (strcase (nth 4 l)))
   (strcat (cond ((wcmatch kd "*THANG*") "THANG") ((wcmatch kd "COUP*") "COUPLER") ((wcmatch kd "KH*") "KHONG") (T ""))
           "|" (strcase (nth 1 l))
           "|" (cond ((wcmatch th "CH*") "CHAY") ((wcmatch th "TAT*") "TATCA") (T ""))
           "|" (nth 3 l)
-          "|" (cond ((wcmatch so "C*") "1") ((wcmatch so "KH*") "0") (T ""))))
+          "|" (cond ((wcmatch so "C*") "1") ((wcmatch so "KH*") "0") (T ""))
+          "|" (if (nth 5 l) (vl-string-translate "|" "/" (QSD:Trim (nth 5 l))) "")))
+;; ten dam cho noi tai dau side (giu nguyen chu hoa / thuong)
+(defun QSD:ChoTen (raw side / l)
+  (setq l (QSD:Split (QSD:H raw (if (= side "L") "CHOTRAI" "CHOPHAI")) "|"))
+  (QSD:Trim (if (nth 5 l) (nth 5 l) "")))
+;; ghi chu thep cho: "THEP CHO / COUPLER [NOI DAM ten]"
+(defun QSD:ChoLab (beam side kd / tn)
+  (setq tn (cdr (assoc side (QSD:Get "CHOTEN" beam))))
+  (strcat (if (= kd "COUPLER") "COUPLER" "TH\\U+00C9P CH\\U+1EDC")
+          (if (and tn (/= tn "")) (strcat " N\\U+1ED0I D\\U+1EA6M " tn) "")))
 
 ;;; ---- sheet nhap lieu QS_DAM_V2: bo cuc o giong het DCE_Pro_Beam (doc bang bo doc DCE) + phan mo rong:
 ;;;      S3..S7 / T3..T7 = thep cho dau TRAI / PHAI (kieu, lop, thanh, L, so le)
@@ -656,8 +668,8 @@
           hs (strcat (if (wcmatch (strcase (QSD:_c2 3 25)) "C*") "_" "") hs
                      (cond ((wcmatch sd "TR*") "/1") ((wcmatch sd "PH*") "/2") ((wcmatch sd "KH*") "/0") (T "")))
           hd (QSD:Put "HS" hs hd)))
-  (setq hd (QSD:Put "CHOTRAI" (QSD:ChoStr (mapcar '(lambda (r) (QSD:_c2 r 19)) '(3 4 5 6 7))) hd))
-  (setq hd (QSD:Put "CHOPHAI" (QSD:ChoStr (mapcar '(lambda (r) (QSD:_c2 r 20)) '(3 4 5 6 7))) hd))
+  (setq hd (QSD:Put "CHOTRAI" (QSD:ChoStr (mapcar '(lambda (r) (QSD:_c2 r 19)) '(3 4 5 6 7 8))) hd))
+  (setq hd (QSD:Put "CHOPHAI" (QSD:ChoStr (mapcar '(lambda (r) (QSD:_c2 r 20)) '(3 4 5 6 7 8))) hd))
   (QSD:Put "HEAD" hd raw))
 
 ;;; ---- sheet nhap lieu QS_DAM_V1 (ban cu): cot A = ma dong, cot D.. = Goi1, Nhip1, Goi2 ... ----
@@ -682,7 +694,7 @@
              (strcat (if (QSD:_is (QSD:_g "SAN_LAT") "C*") "_" "") hs
                      (cond ((QSD:_is sd "TR*") "/1") ((QSD:_is sd "PH*") "/2") ((QSD:_is sd "KH*") "/0") (T "")))))
   (defun QSD:_cho (c)
-    (QSD:ChoStr (mapcar '(lambda (k) (QSD:_q k c)) '("CHO_KIEU" "CHO_LOP" "CHO_THEP" "CHO_L" "CHO_SOLE"))))
+    (QSD:ChoStr (mapcar '(lambda (k) (QSD:_q k c)) '("CHO_KIEU" "CHO_LOP" "CHO_THEP" "CHO_L" "CHO_SOLE" "CHO_TEN"))))
   (setq head
     (list (cons "NAME" (QSD:_g "NAME")) (cons "B" (QSD:_g "B")) (cons "H" (QSD:_g "H")) (cons "NCK" (QSD:_g "NCK"))
           (cons "COTE" (QSD:_g "COTE")) (cons "HS" hs) (cons "LNGAN" (QSD:_g "LNGAN"))
@@ -1235,7 +1247,9 @@
         (cons "L" ltot) (cons "SUPS" sups) (cons "SPANS" spans) (cons "BARS" (reverse lst))
         (cons "ZONES" (reverse zones)) (cons "SB" (reverse sb)) (cons "HANGERS" (reverse hangers))
         (cons "COLSTIR" cols) (cons "CDO" cdo) (cons "CTIE" ctie) (cons "LOT" lot) (cons "LTT" ltt)
-        (cons "KT" kT) (cons "KB" kB) (cons "CHO" cho) (cons "WARN" (reverse warn))))
+        (cons "KT" kT) (cons "KB" kB) (cons "CHO" cho)
+        (cons "CHOTEN" (list (cons "L" (QSD:ChoTen raw "L")) (cons "R" (QSD:ChoTen raw "R"))))
+        (cons "WARN" (reverse warn))))
 
 ;; bo rong dam tai vi tri x (dong 12 cot nhip)
 (defun QSD:WidthAt (beam x / r)
@@ -1643,7 +1657,7 @@
 ;;;-----------------------------------------------------------------------------
 (defun QSD:DrawElev (beam id / tl h hs inv ltot sups spans bars name nck colU colD ybot yDimT yDimB yAx yArr yLtt
                          y ent hdl hdls xs sm z zc k n x dir sb gc xl xr i sp su lst c wt yb1 yt1 ang dx bh hd pts
-                         lot a1 sd dv x0 sg lm xe xsh cp)
+                         lot a1 sd dv x0 sg lm xe xsh cp tn)
   (setq tl (QSD:TL) h (QSD:Get "H" beam) hs (QSD:Get "HS" beam) inv (QSD:Get "SLABINV" beam) ltot (QSD:Get "L" beam)
         sups (QSD:Get "SUPS" beam) spans (QSD:Get "SPANS" beam) bars (QSD:Get "BARS" beam)
         name (QSD:Get "NAME" beam) nck (QSD:Get "NCK" beam) a1 (QSD:CfgN "A1VE") dv (QSD:CfgN "DAIVE"))
@@ -1761,7 +1775,11 @@
           (QSD:DimH (if (= side "L") (- L) x0) (if (= side "L") x0 (+ ltot L)) 0.0 (+ (* 4.0 tl) (* k 5.0 tl)) tl nil)
           (setq k (1+ k)))
         (QSD:Text (+ x0 (* sg (max (* 0.5 lm) (* 2.0 tl)))) (+ (* 4.0 tl) (* k 5.0 tl) (* 1.0 tl))
-                  (if cp "COUPLER" "TH\\U+00C9P CH\\U+1EDC") (* 2.0 tl) "QS_Symbol" "C" 0.0))))
+                  (QSD:ChoLab beam side (if cp "COUPLER" "THANG")) (* 2.0 tl) "QS_Symbol" (if (= side "L") "R" "L") 0.0)
+        ;; ten dam zone sau ghi trong vung net khuat
+        (setq tn (cdr (assoc side (QSD:Get "CHOTEN" beam))))
+        (if (and tn (/= tn ""))
+          (QSD:Text (/ (+ x0 xe) 2.0) (- (+ h (* 3.0 tl))) (strcat "D\\U+1EA6M " tn) (* 2.0 tl) "QS_Symbol" "C" 0.0)))))
   ;; ---- tag thep: moi nhip 3 vi tri (trai / giua / phai), tren + duoi ----
   (foreach sp spans
     (foreach loc (list (list (+ (nth 1 sp) 300.0) 1.0) (list (/ (+ (nth 1 sp) (nth 2 sp)) 2.0) -1.0) (list (- (nth 2 sp) 300.0) -1.0))
@@ -2802,7 +2820,7 @@
             (setq x0 (if (= side "L") 0.0 ltot) sg (if (= side "L") -1.0 1.0))
             (QSD:Line x0 yt x0 yb "QS_Symbol")
             (QSD:Text (+ x0 (* sg 1.2 tl)) (/ (+ yt yb) 2.0)
-                      (strcat "M\U+1EA0CH NG\U+1EEANG" (if (= kd "COUPLER") " - COUPLER" " - TH\U+00C9P CH\U+1EDC"))
+                      (strcat "M\\U+1EA0CH NG\\U+1EEANG - " (QSD:ChoLab beam side kd))
                       (* 1.8 tl) "QS_Symbol" "M" (/ pi 2)))))))
   ;; tung hang
   (setq k 0)
@@ -3645,6 +3663,7 @@
       "  Tai dai gia cuong dam phu cong them dai trong. L dai C / 1 nhanh: cong doan (bo qua uon) hoac theo tim."
       "Thep cho 2 dau: Excel S3:T7 hoac QS_DAMSET trang 3 - Cho thang (keo ra L cho) / Coupler (dung tai mep)."
       "  Coupler: L cho = 0 (tai mep) | 100 | 100/300 (so le: 1/2 thanh ra 100, 1/2 thanh ra 300)."
+      "  Ten dam cho noi (Excel S8/T8): ghi 'COUPLER / THEP CHO NOI DAM ...' tren MC doc va shop."
       "QS_DAMNOI  : bang chieu dai noi theo phi. QS_DAMSETCMD: cai dat tren dong lenh."
       "Moc dai: L moc (x d) nhap '12' | '12/6' (d <= d nguong: 12d, lon hon: 6d) | '8-12/10-10/12-8'."
       "Goc moc: dai kin / dai trong / dai C trai-phai / dai U: 90 - 135 - 180 do."

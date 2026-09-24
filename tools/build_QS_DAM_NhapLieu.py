@@ -92,7 +92,7 @@ EX_HEAD = {
     "N2": 32, "N3": "-1500", "N4": "So le 2", "N5": 10, "N6": "400", "N7": "Mép dưới",
     "B11": "3t28", "B12": "3t28",
     "S3": "Khong", "T3": "Khong", "S4": "TB", "T4": "TB", "S5": "Tat ca", "T5": "Tat ca",
-    "S6": "AUTO", "T6": "AUTO", "S7": "Khong", "T7": "Khong", "Y2": "2 ben", "Y3": "Khong",
+    "S6": "AUTO", "T6": "AUTO", "S7": "Khong", "T7": "Khong", "S8": "", "T8": "", "Y2": "2 ben", "Y3": "Khong",
 }
 # luoi: {dong: [gia tri theo cot C, D, E ...]}
 EX_GRID = {
@@ -207,7 +207,8 @@ CHO = [(3, "Kiểu thép chờ", "CHOKIEU", True,
        (4, "Lớp được chờ", "CHOLOP", False, "T = trên · B = dưới · G = giá. Ghép: TBG, TB ..."),
        (5, "Thanh được chờ", "CHOTHEP", True, "Tat ca = mọi thanh tới đầu dầm\nChay suot = chỉ thép chạy suốt"),
        (6, "L chờ", "CHOL", False, "Chờ thẳng: AUTO = L nối ngoài vùng · 40d · 1200 (mm)\nCoupler: đoạn ra ngoài mép 0 · 100 · 100/300 = so le (½ thanh 100, ½ thanh 300); AUTO = QS_DAMSET"),
-       (7, "Chờ so le 50%", "KHONGCO", True, "Co = 1/2 số thanh chờ L, 1/2 chờ 2L + KC mối nối")]
+       (7, "Chờ so le 50%", "KHONGCO", True, "Co = 1/2 số thanh chờ L, 1/2 chờ 2L + KC mối nối"),
+       (8, "Tên dầm chờ nối", None, False, "Tên dầm / zone sau mà thép chờ (thẳng hoặc coupler) nối sang, vd B138 – ghi lên MC dọc và shop: 'COUPLER NỐI DẦM B138'. Để trống = không ghi.")]
 
 
 def as_area_expr(n):
@@ -317,6 +318,7 @@ def build_sheet(wb, title, example):
         dv(f"CHO{r}", [f"S{r}", f"T{r}"], lab, prm, lst, strict)
     ws["P3"].comment = Comment("THÉP CHỜ 2 ĐẦU DẦM (khi đầu dầm là mạch ngừng, chờ sang zone / đợt đổ sau)\n"
                                "• Cho thang: thép kéo thẳng ra ngoài đầu dầm đoạn L chờ, không bẻ ke.\n"
+                               "• Tên dầm chờ nối (S8 / T8): ghi 'THÉP CHỜ / COUPLER NỐI DẦM …' trên MC dọc, shop và tên dầm trong vùng nét khuất.\n"
                                "• Coupler: thép dừng tại mép (L chờ = 0) hoặc kéo ra ngoài mép: 100, hoặc so le 100/300 (½ số thanh 100, ½ số thanh 300).\n"
                                "• So le: 1/2 số thanh chờ L, 1/2 chờ 2L + KC mối nối.\n"
                                "Bản vẽ có nét khuất dầm zone sau, đường MẠCH NGỪNG, dim L chờ; QS_SHOPDAM cắt đúng chiều dài.\n"
@@ -653,7 +655,7 @@ def build_help(wb):
         ("TƯƠNG THÍCH DCE", "Vị trí ô nhập giống hệt sheet DCE_Pro_Beam: F2:F8, J2:J8, N2:N8, B11, B12, lưới C11:AG30 (Gối 1 = cột C, Nhịp 1 = cột D ...).\n"
                             "→ Có thể copy nguyên vùng C2:N8 và B11:AG30 từ file DCE (DAM.xlsm) dán vào (Paste Values) là dùng được.\n"
                             "Ô A1 = QS_DAM_V2 là mã nhận dạng – không xóa. QS_DAM vẫn đọc được sheet DCE_Pro_Beam và sheet QS_DAM_V1 cũ."),
-        ("PHẦN MỞ RỘNG QS", "• THÉP CHỜ 2 ĐẦU DẦM (S3:T7): kiểu (Khong / Cho thang / Coupler), lớp (TBG, TB, T, B), thanh (Tat ca / Chay suot), L chờ (AUTO / 40d / 1200; coupler 0 / 100 / 100/300 so le), so le.\n"
+        ("PHẦN MỞ RỘNG QS", "• THÉP CHỜ 2 ĐẦU DẦM (S3:T7): kiểu (Khong / Cho thang / Coupler), lớp (TBG, TB, T, B), thanh (Tat ca / Chay suot), L chờ (AUTO / 40d / 1200; coupler 0 / 100 / 100/300 so le), tên dầm chờ nối (S8:T8), so le.\n"
                             "• TÙY CHỌN SÀN (Y2:Y3): tai sàn 2 ben / Trai / Phai / Khong, sàn lật – dùng khi F7 chỉ là số (nhập mã DCE 150/1, _150 thì bỏ qua Y2:Y3).\n"
                             "• Dòng 33-35: tọa độ trục, KC trục-trục tính từ bề rộng gối + Ltt + lệch trục; nhập KC trục mặt bằng (dòng 34) → Ltt suy ra (dòng 35, vàng nếu lệch Ltt đang nhập).\n"
                             "• Dòng 37-42: kiểm tra As (cm²) bố trí / yêu cầu – thép chạy suốt hiệu dụng (có tính đổi thép dòng 23/25) + tăng cường lớp 1..5; gối tách trái/phải.\n"
