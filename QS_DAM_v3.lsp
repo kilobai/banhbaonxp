@@ -1185,7 +1185,8 @@
   (setq bars nil)
   ;; ham kep 2 dau thanh vao dam, tu them be ke neo o goi bien
   ;; dau thanh neo trong goi: lui vao theo lop (lop1 = CEND, moi lop +DLVE, thep duoi +25) giong DCE
-  (defun QSD:_eo (tp lay) (+ cend (* (1- lay) (QSD:CfgN "DLVE")) (if (= tp "B") 25.0 0.0)))
+  ;; thep GIA: moi lop cung vi tri dau thanh (cung chieu dai neo nhu lop gia duoi cung)
+  (defun QSD:_eo (tp lay) (+ cend (if (= tp "G") 0.0 (* (1- lay) (QSD:CfgN "DLVE"))) (if (= tp "B") 25.0 0.0)))
   (defun QSD:_clamp (tp lay n d x1 x2 l1 l2 kind idx tbl sg / eo)
     (setq eo (QSD:_eo tp lay))
     (if (<= x1 eo) (setq x1 eo l1 (* sg (QSD:AnchorLeg (QSD:NeoGet tbl d) d (max 0.0 (- w0 eo))))))
