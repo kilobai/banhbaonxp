@@ -208,6 +208,8 @@
   (list "LSTOCK"  "11700" "Chieu dai 1 cay thep (mm)"                      "N")
   (list "THUVIEN" "10400,9750,9360,9100,8775,7020,6500,5200,4680,2600" "Thu vien L uu tien (mm)" "S")
   (list "UUTIENTV" "1"    "Uu tien L trong thu vien"                       "B")
+  (list "LMACDINH" "0"    "Chieu dai thanh mac dinh uu tien cat / phoi (0 = khong)" "Z")
+  (list "LECHNOI" "0"     "Cho phep moi noi lech ra ngoai vung noi (mm) de dung L mac dinh" "Z")
   (list "TOPMODE" "NHIP"  "Vung noi thep TREN"                             "M")
   (list "TOPK"    "0.25"  "Thep TREN: cach mep k x L"                      "K")
   (list "BOTMODE" "GOI"   "Vung noi thep DUOI"                             "M")
@@ -2804,7 +2806,7 @@
           (if (>= e (- lo 1e-6)) (setq best e))))))
   best)
 
-(defun QSD:CutPlan (Lb zt Lp Lp2 fb / Ls r lmin lib s es laps flag lo hi ivs e guard lu)
+(defun QSD:CutPlan (Lb zt Lp Lp2 fb / Ls r lmin lib s es laps flag lo hi ivs e guard lu lm0 tol ivt)
   ;; Lp = chieu dai noi TRONG vung cho phep, Lp2 = NGOAI vung (khi buoc phai noi ngoai vung)
   (setq Ls (QSD:CfgN "LSTOCK") r (QSD:CfgN "RNDCAT") lmin (QSD:CfgN "LMIN"))
   ;; uu tien: ca cay (Ls) -> thu vien L (lon -> nho)
@@ -2814,6 +2816,9 @@
               (QSD:Sort (vl-remove-if-not '(lambda (x) (and x (> x 0) (< x Ls)))
                           (mapcar 'QSD:Num (QSD:Split (QSD:Cfg "THUVIEN") ","))) '>)
               nil)))
+  ;; chieu dai mac dinh (QS_DAMSET trang 4): uu tien truoc ca cay / thu vien ; cho phep moi noi lech LECHNOI
+  (setq lm0 (QSD:CfgN "LMACDINH") tol (QSD:CfgN "LECHNOI"))
+  (if (and (> lm0 0) (<= lm0 Ls)) (setq lib (cons lm0 (vl-remove lm0 lib))) (setq lm0 nil))
   (setq s 0.0 es nil laps nil flag nil guard 0)
   (while (and (> (- Lb s) (+ Ls 1e-6)) (< guard 50))
     (setq guard (1+ guard) lu Lp)
@@ -2823,7 +2828,16 @@
     (foreach z zt (if (<= (+ (car z) Lp) (cadr z)) (setq ivs (cons (list (+ (car z) Lp) (cadr z)) ivs))))
     (setq ivs (QSD:IvClip (reverse ivs) lo hi))
     (setq e nil)
-    (if fb
+    ;; thu L mac dinh voi vung noi mo rong +- LECHNOI
+    (if (and lm0 (> tol 0))
+      (progn
+        (setq ivt nil)
+        (foreach z zt (if (<= (+ (car z) Lp) (+ (cadr z) tol tol))
+                        (setq ivt (cons (list (max 0.0 (+ (- (car z) tol) Lp)) (+ (cadr z) tol)) ivt))))
+        (setq ivt (QSD:IvClip (reverse ivt) lo hi))
+        (if fb (setq ivt (QSD:IvClip (QSD:IvSubAll ivt fb) lo hi)))
+        (if (QSD:IvIn ivt (+ s lm0)) (setq e (+ s lm0)))))
+    (if (and fb (null e))
       (progn
         (setq e (QSD:PickE s (QSD:IvClip (QSD:IvSubAll ivs fb) lo hi) lib r))
         (if (null e) (setq flag (if flag flag "SOLE")))))
@@ -3068,9 +3082,13 @@
 
 ;; ve 1 doan tai cao do y (tuyet doi, x tuong doi)
 ;; ve 1 doan tai cao do y (x tuong doi), dang DCE (vat goc + gach dau thanh)
-(defun QSD:DrawPiece (sh y din / xa xb)
+(defun QSD:DrawPiece (sh y din / xa xb pts)
   (setq xa (nth 3 sh) xb (+ (nth 3 sh) (cadr sh)))
-  (QSD:PL (QSD:BarPts xa xb y (car sh) (caddr sh) din) "QS_ThepShop" nil 0.0))
+  ;; shop: hinh chu L don (khong vat goc / gach dau thanh)
+  (setq pts (list (list xa y) (list xb y)))
+  (if (/= (car sh) 0.0) (setq pts (cons (list xa (+ y (car sh))) pts)))
+  (if (/= (caddr sh) 0.0) (setq pts (append pts (list (list xb (+ y (caddr sh)))))))
+  (QSD:PL pts "QS_ThepShop" nil 0.0))
 
 ;; chieu cao chan lon nhat (theo dau) trong cac hang
 (defun QSD:RowsLeg (rows sg / m)
@@ -4765,7 +4783,8 @@
   (if (and fn (setq f (open fn "w")))
     (progn
       (setq i 1)
-      (foreach pg *QSD-PAGES* (foreach s (QSD:DclPage i pg) (write-line s f)) (setq i (1+ i)))
+      (foreach pg *QSD-PAGES* (setq *QSD-STEP* (strcat "tao DCL trang " (itoa i))) (foreach s (QSD:DclPage i pg) (write-line s f)) (setq i (1+ i)))
+      (setq *QSD-STEP* "tao DCL bang neo noi")
       (foreach s (QSD:DclNoi) (write-line s f))
       (close f)
       fn)
@@ -4931,8 +4950,9 @@
         (progn
           (setq run T)
           (while run
-            (setq pg (nth (1- page) *QSD-PAGES*) *QSD-DLGKEYS* (cadr pg))
+            (setq pg (nth (1- page) *QSD-PAGES*) *QSD-DLGKEYS* (cadr pg) *QSD-STEP* (strcat "dien trang " (itoa page)))
             (QSD:DlgFill *QSD-DLGKEYS* *QSD-DLGCFG*)
+            (setq *QSD-STEP* (strcat "trang " (itoa page)))
             (action_tile "P1" "(QSD:DlgGo 11)") (action_tile "P2" "(QSD:DlgGo 12)")
             (action_tile "P3" "(QSD:DlgGo 13)") (action_tile "P4" "(QSD:DlgGo 14)")
             (action_tile "P5" "(QSD:DlgGo 15)") (action_tile "P6" "(QSD:DlgGo 16)")
@@ -4998,7 +5018,13 @@
   (QSD:CfgSave cfg)
   (QSD:Msg ">> Da luu cai dat."))
 
-(defun c:QS_DAMSET ( / m)
+(defun c:QS_DAMSET ( / m *error*)
+  ;; bao loi kem buoc dang chay (de tim nguyen nhan)
+  (defun *error* (msg)
+    (if (and msg (not (wcmatch (strcase msg) "*CANCEL*,*QUIT*,*EXIT*,*BREAK*")))
+      (QSD:Err (strcat msg "  [QS_DAMSET - buoc: " (if *QSD-STEP* *QSD-STEP* "?") "]")))
+    (princ))
+  (setq *QSD-STEP* "doc cai dat")
   (QSD:CfgLoad)
   (if (not (QSD:SetDialog 1))
     (progn (QSD:Msg "(Hop thoai DCL khong mo duoc -> sua tren dong lenh)") (QSD:SetCmdline)))
