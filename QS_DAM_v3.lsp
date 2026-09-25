@@ -165,6 +165,7 @@
   (list "GOCVB"   "60"    "Goc dai vai bo khi H >= Hvb (do)"               "L" '("45" "60"))
   (list "HVB"     "700"   "Hvb - chieu cao dam dung goc tren (mm)"         "Z")
   (list "GHISLKR" "0"     "Ghi so luong thep co khoang rai (21%%c10a100)"  "B")
+  (list "DAIGHISL" "1"    "Shop dai: ghi so luong thep dai (vd 65%%c12)"   "B")
   (list "ROUNDUPSL" "0"   "Lam tron SL len (RoundUp)"                      "B")
   ;; ===== TRANG 3: NEO / BE KE =====
   (list "HOOKD"   "5"     "Be ke toi thieu (x d)"                          "Z")
@@ -3556,7 +3557,10 @@
         done nil segs nil i 1)
   (while (< i (length pts))
     (setq p1 (nth (1- i) pts) p2 (nth i pts))
-    (if (> (QSD:VLen (QSD:V- p2 p1)) 1.0)
+    ;; bo dim doan thang ngan (< 60, ngang / dung) sat moc - DCE khong can
+    (if (and (> (QSD:VLen (QSD:V- p2 p1)) 1.0)
+             (not (and (< (QSD:VLen (QSD:V- p2 p1)) 60.0)
+                       (or (< (abs (- (car p1) (car p2))) 0.5) (< (abs (- (cadr p1) (cadr p2))) 0.5)))))
       (setq segs (cons (list p1 p2 (+ (car p1) (car p2) (cadr p1) (cadr p2))) segs)))
     (setq i (1+ i)))
   (foreach sg (QSD:Sort segs '(lambda (a b) (< (caddr a) (caddr b))))
@@ -3601,7 +3605,7 @@
     (if (QSD:CfgB "DAIDIM") (QSD:DimShape pts o tn))
     (setq ent (QSD:Insert "Dce_KhtThepDai2" (+ x (* 2.0 tn)) (- (+ mny dy) (* 2.0 tn)) tn "QS_Block"
                           (list (cons "SH" sh)
-                                (cons "DKVAKC" (strcat (itoa q) "%%c" (itoa (fix d)) " (L=" (QSD:NumStr (nth 3 r)) ")"))
+                                (cons "DKVAKC" (strcat (if (QSD:CfgB "DAIGHISL") (itoa q) "") "%%c" (itoa (fix d)) " (L=" (QSD:NumStr (nth 3 r)) ")"))
                                 (cons "VITRI" ""))))
     (if ent (QSD:SetXd ent "DcePro" (list (cons 1000 (strcat "(0)_" name "(1)_" sh "(2)_(3)_" (itoa (fix d))
                                                             "(4)_" (itoa nck) "(5)_" (itoa q))))))
