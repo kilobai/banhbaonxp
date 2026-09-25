@@ -252,6 +252,7 @@
   (list "DAIDIM"  "1"     "Shop dai: dim tung doan"                        "B")
   (list "BANGVT"  "DUOI"  "Vi tri bang thong ke"                           "L" '("DUOI" "PHAI"))
   (list "CHOSHOP" "1"     "Shop: ve mach ngung / coupler thep cho 2 dau"   "B")
+  (list "SHOPHANG" "8"    "Shop: KC toi thieu giua 2 hang thep (x ty le)"  "N")
   ;; ===== TRANG 6: MAT BANG KET CAU (lenh QS_DAMMB) - mau layer dang wcmatch, cach nhau dau phay =====
   (list "MBLAYTRUC" "*TRUC*,*AXIS*,*GRID*" "MBKC: layer duong truc"              "S")
   (list "MBLAYTENTRUC" "*TRUC*,*AXIS*,*GRID*" "MBKC: layer ten truc (text / block)" "S")
@@ -3239,15 +3240,24 @@
   (QSD:PL (list (list (- x 40.0) (+ y 25.0)) (list (+ x 40.0) (+ y 25.0)) (list (+ x 40.0) (- y 25.0)) (list (- x 40.0) (- y 25.0)))
           "QS_Symbol" T 0.0))
 
-(defun QSD:DrawBand (beam rows yBase dir label tp id / tl ltot n dn up pitch y0 yb yt ys y k rowl it rec gi pcs pk sh
+(defun QSD:DrawBand (beam rows yBase dir label tp id / tl ltot n dn up pitch ups dns tot y0 yb yt ys y k rowl it rec gi pcs pk sh
                         ey eyn ent lp e1 flag din xm txt pc2 sh2 ylo xlo xhi tps side x0 sg kd)
   (setq tl (QSD:TL) ltot (QSD:Get "L" beam) n (length rows)
         dn (QSD:RowsLeg rows -1.0) up (QSD:RowsLeg rows 1.0))
   ;; khoang hang gon (giong DCE): du cho chu dim tren thanh, tag + dim noi / neo duoi thanh va chan be
-  (setq pitch (max (* 11.0 tl) (+ (max dn up) (* 5.0 tl))))
+  ;; khoang cach hang tinh RIENG tung cap hang: chan be xuong cua hang tren + chan be len cua hang duoi
+  ;; + cho chu dim / tag ; toi thieu SHOPHANG x ty le (QS_DAMSET trang 5)
+  (setq ups (mapcar '(lambda (r) (QSD:RowsLeg (list r) 1.0)) rows)
+        dns (mapcar '(lambda (r) (QSD:RowsLeg (list r) -1.0)) rows)
+        ys nil tot 0.0 k 0)
+  (repeat (max 0 (1- n))
+    (setq pitch (max (* (QSD:CfgN "SHOPHANG") tl)
+                     (+ (max (nth k dns) (* 5.0 tl)) (max (nth (1+ k) ups) (* 2.5 tl)) 70.0 (* 0.5 tl))))
+    (setq ys (append ys (list tot)) tot (+ tot pitch) k (1+ k)))
+  (setq ys (append ys (list tot)) up (+ (car ups) 70.0) dn (QSD:Last dns))
   (if (= dir 1)
-    (setq yb yBase y0 (+ yBase dn (* 9 tl) (* pitch (1- n))) yt (+ y0 up (* 5 tl)))
-    (setq yt yBase y0 (- yBase up (* 5 tl)) yb (- y0 (* pitch (1- n)) dn (* 9 tl))))
+    (setq yb yBase y0 (+ yBase dn (* 6 tl) tot) yt (+ y0 up (* 4 tl)))
+    (setq yt yBase y0 (- yBase up (* 4 tl)) yb (- y0 tot dn (* 6 tl))))
   (setq din (if (= tp "T") -1.0 1.0))
   ;; khung + o nhan (mo rong khi co thep cho 2 dau)
   (setq xlo -370.0 xhi ltot)
@@ -3283,7 +3293,7 @@
   ;; tung hang
   (setq k 0)
   (foreach rowl rows
-    (setq y (- y0 (* pitch k)))
+    (setq y (- y0 (nth k ys)))
     (foreach it rowl
       (setq rec (car it) gi (cadr it) pcs (nth 1 gi) pk 0)
       (foreach pc pcs
@@ -3329,7 +3339,7 @@
                   lp (- (cadr pc) (car (nth (1+ pk) pcs))))
             (if (> lp 0)
               (progn
-                (QSD:DimH (- e1 lp) e1 ylo (- ylo (* 6.5 tl)) tl nil)
+                (QSD:DimH (- e1 lp) e1 ylo (- ylo (* 4.5 tl)) tl nil)
                 (QSD:Ellipse (- e1 (/ lp 2.0)) (/ (+ ey eyn) 2.0) (* 2.8 tl) 0.6 "QS_Symbol"))
               (QSD:PL (list (list (- e1 (* 2 tl)) (- ylo 50.0)) (list (+ e1 (* 2 tl)) (- ylo 50.0))
                             (list (+ e1 (* 2 tl)) (+ ylo 120.0)) (list (- e1 (* 2 tl)) (+ ylo 120.0)))
@@ -4739,7 +4749,7 @@
         (list "2. DAI / MOC / MAT CAT NGANG" (QSD:KeyRange "LMOCNGOAI" "ROUNDUPSL"))
         (list "3. NEO / BE KE / THEP CHO" (QSD:KeyRange "HOOKD" "KNHIP"))
         (list "4. CAT THEP SHOP" (vl-remove "THUVIEN" (QSD:KeyRange "LSTOCK" "CSV")))
-        (list "5. BO CUC SHOP" (QSD:KeyRange "SHOPTRENVT" "CHOSHOP"))
+        (list "5. BO CUC SHOP" (QSD:KeyRange "SHOPTRENVT" "SHOPHANG"))
         (list "6. MAT BANG KC (QS_DAMMB)" (QSD:KeyRange "MBLAYTRUC" "MBDPB"))))
 
 ;; nhan hien thi cho gia tri chon (kieu L)
