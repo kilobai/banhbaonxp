@@ -205,6 +205,7 @@
   (list "NEOG"    "10-350/12-420/14-480/16-550/18-620/20-690/22-760/25-860/28-960/32-1100"   "Neo GIA (d-L ; 40 = 40d ; 500 = mm)" "S")
   (list "KGOI"    "0.25|0.25|0.15" "He so thep mu goi (| L truc tu mep, \\ tu tim, / Ln)"     "S")
   (list "TCGOIMAX" "0"   "TC tren goi: 2 ben vuon theo nhip LON hon (dai giu nguyen)" "B")
+  (list "NEOTHANG" "0"   "Goi giua: neo thang sang nhip ke tiep thay vi be ke"  "B")
   (list "KNHIP"   "0.15\\0.25\\0.1" "He so thep tang cuong nhip (cung quy uoc)"  "S")
   ;; ===== TRANG 4: CAT THEP SHOP =====
   (list "LSTOCK"  "11700" "Chieu dai 1 cay thep (mm)"                      "N")
@@ -233,6 +234,7 @@
   (list "HATCHPAT" "ANSI31" "Loai hatch vung duoc noi"                     "S")
   (list "HATCHSC" "200"   "Scale hatch"                                    "N")
   (list "DIMDV"   "1"     "Dim DV (dim doan cat tren shop)"                "B")
+  (list "DIMTC"   "1"     "Shop: dim dau thanh tang cuong tu mep goi (net dut)" "B")
   (list "COUPLER" "0"     "Noi coupler khi d >= (0 = khong)"               "Z")
   (list "ROWK"    "4"     "Khoang cach hang shop (x chieu cao chu)"        "N")
   (list "BANG"    "1"     "Ve bang thong ke doan cat + thong ke dai"       "B")
@@ -1130,7 +1132,7 @@
 (defun QSD:BuildBeam (raw / warn b h ltot sups spans x w ln i j ns cend neoT neoB neoG kT kB rl bars s lr ext d Lm
                          nl nr ds cm xl xr f0 dai zones gia k segs sb off sz lst w0 wl kd dd n1 n2 lz sp su
                          hsraw hs sides inv nck cutall sd sp2 cur spanBarsT spanBarsB st ref refs L1 a1 ex
-                         sizes poss gcs hng hangers cuts inner tl cols cdo ctie lot ltt dk p q stepwarn cho)
+                         sizes poss gcs hng hangers cuts inner tl cols cdo ctie lot ltt dk p q stepwarn cho neo)
   (setq warn nil)
   (if (vl-string-search "/" (QSD:H raw "B")) (setq warn (cons "CHUA HO TRO: mong bang (F3/F4 dang a/b/c) -> lay so dau" warn)))
   (setq b (QSD:NumD (car (QSD:Split (QSD:H raw "B") "/")) 0.0) h (QSD:NumD (car (QSD:Split (QSD:H raw "H") "/")) 0.0))
@@ -1219,10 +1221,17 @@
       (setq d (nth 3 r) j (car r) k (cadr r))
       (setq xl (if (= j 0) 0.0 (+ (nth 1 (nth j sups)) (QSD:_eo tp 1)))
             xr (if (= k (1- ns)) ltot (- (nth 2 (nth (1+ k) sups)) (QSD:_eo tp 1))))
-      (QSD:_clamp tp 1 (nth 2 r) d xl xr
-                  (if (= j 0) 0.0 (* (if (= tp "T") -1.0 1.0) (QSD:AnchorLeg (QSD:NeoGet (if (= tp "T") neoT neoB) d) d (- (nth 2 (nth j sups)) xl))))
-                  (if (= k (1- ns)) 0.0 (* (if (= tp "T") -1.0 1.0) (QSD:AnchorLeg (QSD:NeoGet (if (= tp "T") neoT neoB) d) d (- xr (nth 1 (nth (1+ k) sups))))))
-                  "CHAY" j (if (= tp "T") neoT neoB) (if (= tp "T") -1.0 1.0))))
+      (setq neo (QSD:NeoGet (if (= tp "T") neoT neoB) d))
+      (if (QSD:CfgB "NEOTHANG")
+        ;; neo thang sang nhip ke tiep: dau thanh = mat goi phia nhip + L neo, khong be ke
+        (QSD:_clamp tp 1 (nth 2 r) d
+                    (if (= j 0) xl (- (nth 2 (nth j sups)) neo))
+                    (if (= k (1- ns)) xr (+ (nth 1 (nth (1+ k) sups)) neo))
+                    0.0 0.0 "CHAY" j (if (= tp "T") neoT neoB) (if (= tp "T") -1.0 1.0))
+        (QSD:_clamp tp 1 (nth 2 r) d xl xr
+                    (if (= j 0) 0.0 (* (if (= tp "T") -1.0 1.0) (QSD:AnchorLeg neo d (- (nth 2 (nth j sups)) xl))))
+                    (if (= k (1- ns)) 0.0 (* (if (= tp "T") -1.0 1.0) (QSD:AnchorLeg neo d (- xr (nth 1 (nth (1+ k) sups))))))
+                    "CHAY" j (if (= tp "T") neoT neoB) (if (= tp "T") -1.0 1.0)))))
   ;; ---- thep tang cuong TREN tai GOI: dong 13..17 cot goi (J2 a, theo lop) ----
   (foreach sp sups
     (setq i (car sp) k 1)
@@ -1251,11 +1260,15 @@
             (if (> cm 0) (QSD:_clamp "T" k cm d xl xr 0.0 0.0 "GOI" i neoT -1.0))
             ;; thanh chi 1 ben: xuyen qua goi, be xuong neo tai mep goi phia kia (giong DCE)
             (if (> (- nl cm) 0)
-              (progn (setq x (- (nth 2 sp) (QSD:_eo "T" k)))
-                     (QSD:_clamp "T" k (- nl cm) d xl x 0.0 (- (QSD:AnchorLeg (QSD:NeoGet neoT d) d (- x (nth 1 sp)))) "GOI" i neoT -1.0)))
+              (if (and (QSD:CfgB "NEOTHANG") (< i ns))
+                (QSD:_clamp "T" k (- nl cm) d xl (+ (nth 1 sp) (QSD:NeoGet neoT d)) 0.0 0.0 "GOI" i neoT -1.0)
+                (progn (setq x (- (nth 2 sp) (QSD:_eo "T" k)))
+                       (QSD:_clamp "T" k (- nl cm) d xl x 0.0 (- (QSD:AnchorLeg (QSD:NeoGet neoT d) d (- x (nth 1 sp)))) "GOI" i neoT -1.0))))
             (if (> (- nr cm) 0)
-              (progn (setq x (+ (nth 1 sp) (QSD:_eo "T" k)))
-                     (QSD:_clamp "T" k (- nr cm) d x xr (- (QSD:AnchorLeg (QSD:NeoGet neoT d) d (- (nth 2 sp) x))) 0.0 "GOI" i neoT -1.0))))))
+              (if (and (QSD:CfgB "NEOTHANG") (> i 0))
+                (QSD:_clamp "T" k (- nr cm) d (- (nth 2 sp) (QSD:NeoGet neoT d)) xr 0.0 0.0 "GOI" i neoT -1.0)
+                (progn (setq x (+ (nth 1 sp) (QSD:_eo "T" k)))
+                       (QSD:_clamp "T" k (- nr cm) d x xr (- (QSD:AnchorLeg (QSD:NeoGet neoT d) d (- (nth 2 sp) x))) 0.0 "GOI" i neoT -1.0)))))))
       (setq k (1+ k))))
   ;; ---- thep tang cuong TREN o BUNG nhip: dong 13..17 cot nhip (J2 c) ----
   (foreach sp spans
@@ -2273,6 +2286,20 @@
 ;;  "UN"/"UT"   dai U bao / U trong (ho tren), moc 2 dau huong vao trong
 ;;  "C"         thep / dai C nam ngang dai w, dir 1 = moc len, -1 = moc xuong ; d >= BEMOCC -> thanh thang
 ;;  o = do lech nhanh chong (ve thay 2 nhanh; 0 = trung nhau, dung tinh chieu dai)
+;; dai C noi 2 thep gia o MC ngang giong DCE: doan thang duoi 2 thanh (tam xl..xr, cao do y - R),
+;; trai vong GOCCL quanh thanh trai + duoi LMOCCL, phai vong GOCCR quanh thanh phai + chan LMOCCR ; sg = -1: lat nguoc
+(defun QSD:DrawCTie (xl xr y dG d sg / R aL aE pS pE tL tR pts b1 b2)
+  (setq R (max (/ (+ dG d) 2.0) (QSD:RStir))
+        aL (QSD:Deg (- 270.0 (QSD:CfgN "GOCCL"))) aE (QSD:Deg (+ 270.0 (QSD:CfgN "GOCCR"))))
+  (setq pS (list (+ xl (* R (cos aL))) (* R (sin aL)))
+        pE (list (+ xr (* R (cos aE))) (* R (sin aE)))
+        tL (QSD:PAdd pS (list (sin aL) (- (cos aL))) (QSD:HookLen "LMOCCL" d))
+        tR (QSD:PAdd pE (list (- (sin aE)) (cos aE)) (QSD:HookLen "LMOCCR" d))
+        b1 (/ (sin (QSD:Deg (/ (QSD:CfgN "GOCCL") 4.0))) (cos (QSD:Deg (/ (QSD:CfgN "GOCCL") 4.0))))
+        b2 (/ (sin (QSD:Deg (/ (QSD:CfgN "GOCCR") 4.0))) (cos (QSD:Deg (/ (QSD:CfgN "GOCCR") 4.0)))))
+  (setq pts (list (list (car tL) (cadr tL) 0.0) (list (car pS) (cadr pS) b1) (list xl (- R) 0.0)
+                  (list xr (- R) b2) (list (car pE) (cadr pE) 0.0) (list (car tR) (cadr tR) 0.0)))
+  (QSD:PL (mapcar '(lambda (p) (list (car p) (+ y (* sg (cadr p))) (* sg (caddr p)))) pts) "QS_ThepDai" nil 0.0))
 ;; dai 1 nhanh o MC ngang giong DCE: nhanh dung sat trai thanh lop 1 tren (tam xc, yT), moc tren vong qua
 ;; dinh thanh (cung GOC1N, ban kinh = r thanh + r dai) roi duoi thang LMOC1N ; duoi: vong 90 do duoi thanh lop 1
 ;; duoi, chan ngang LCHAN1N sang phai
@@ -2568,8 +2595,7 @@
         (setq dct (if (and ctie (cadr ctie)) (cadr ctie) ds))
         (if (and (/= mode "") (/= mode "NONE")
                  (or (wcmatch mode "TO*,TOAN*") (not (wcmatch mode "SO LE*")) (= (rem (nth 1 bb) 2) 1)))
-          (QSD:CBar (- bcx xe (/ dG 2.0) (/ dct 2.0)) (+ bcx xe (/ dG 2.0) (/ dct 2.0)) (- y (QSD:CfgN "KHEHOC"))
-                    (if (cadddr ctie) -1.0 1.0) dct))
+          (QSD:DrawCTie (- bcx xe) (+ bcx xe) y dG dct (if (cadddr ctie) -1.0 1.0)))
         (if (= (nth 1 bb) 1)
           (progn
             (setq yg1 y)
@@ -3324,6 +3350,8 @@
                      (list (+ (nth 3 sh) (cadr sh) (* 2 tl)) (+ ey (/ (caddr sh) 2.0))) tl))
         ;; dim neo: tu net dut mat goi toi dau thanh nam trong goi
         (QSD:DimNeo beam sh ey tl)
+        ;; dim dau thanh nam trong nhip (thanh tang cuong) tu mep goi
+        (if (QSD:CfgB "DIMTC") (QSD:DimTC beam sh ey tl rec))
         ;; tag
         (setq xm (+ (nth 3 sh) (/ (cadr sh) 2.0)))
         (setq ent (QSD:Insert "Dce_KhtThepDai2" xm ey tl "QS_Block"
@@ -3368,6 +3396,22 @@
         ;; dau phai nam trong goi -> neo = xb - mep trai goi
         (if (and (<= xb (+ (nth 2 su) 1.0)) (> xb (+ (nth 1 su) 1.0)) (< xa (nth 1 su)))
           (QSD:DimH (nth 1 su) xb ey (- ey (* 3.5 tl)) tl nil))))))
+
+;; dau thanh nam trong NHIP (khong trong goi): dim tu mep goi (net dut) toi dau thanh, dat duoi thanh
+;;  thanh vuot qua goi ben kia -> do tu mep goi do (doan vuon ra) ; thanh nam gon trong nhip -> do tu mep goi gan phia dau thanh
+(defun QSD:DimTC (beam sh ey tl rec / xa xb sups i fl fr su1 su2 ea eb)
+  (setq xa (nth 3 sh) xb (+ (nth 3 sh) (cadr sh)) sups (QSD:Get "SUPS" beam) i 0)
+  ;; chi dau thanh goc (khong phai dau cat tai moi noi)
+  (setq ea (< (abs (- xa (nth 6 rec))) 1.0) eb (< (abs (- xb (nth 7 rec))) 1.0))
+  (while (< (1+ i) (length sups))
+    (setq su1 (nth i sups) su2 (nth (1+ i) sups) fl (nth 2 su1) fr (nth 1 su2))
+    ;; dau trai trong nhip i
+    (if (and ea (> xa (+ fl 1.0)) (< xa (- fr 1.0)))
+      (if (> xb fr) (QSD:DimH xa fr ey (- ey (* 3.5 tl)) tl nil) (QSD:DimH fl xa ey (- ey (* 3.5 tl)) tl nil)))
+    ;; dau phai trong nhip i
+    (if (and eb (> xb (+ fl 1.0)) (< xb (- fr 1.0)))
+      (if (< xa fl) (QSD:DimH fl xb ey (- ey (* 3.5 tl)) tl nil) (QSD:DimH xb fr ey (- ey (* 3.5 tl)) tl nil)))
+    (setq i (1+ i))))
 
 ;; xep nhieu thanh khong chong nhau vao chung 1 hang shop (thanh da cat chiem ca hang)
 (defun QSD:PackRows (items / rows ext placed m)
@@ -3522,7 +3566,8 @@
             dct (if (cadr ctie) (cadr ctie) ds) s (if (caddr ctie) (caddr ctie) 400.0))
       (if (or (not (wcmatch (strcase (car ctie)) "SO LE*")) (= (rem (nth 1 bb) 2) 1))
         (progn
-          (setq b (QSD:WidthAt beam (/ (+ (nth 4 bb) (nth 5 bb)) 2.0)) w (+ (- b cvL cvR (* 2 ds)) dct))
+          ;; giong DCE: doan thang = KC tim 2 thanh gia
+          (setq b (QSD:WidthAt beam (/ (+ (nth 4 bb) (nth 5 bb)) 2.0)) w (- b cvL cvR (* 2 ds) (nth 3 bb)))
           (QSD:_sadd (QSD:SM sm (QSD:SKey "CTIE" 0 b)) dct (strcat "C " (QSD:NumStr (QSD:RndCT w)))
                      (list "C" w 0.0 dct 1.0) (1+ (QSD:CntDiv (- (nth 5 bb) (nth 4 bb)) s)))))))
   ;; thep C do lop tang cuong: moi thanh lop 2 (T/B)
