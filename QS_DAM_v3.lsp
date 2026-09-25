@@ -5,6 +5,8 @@
 ;;;          Dce_KhtThepDai2 (SH / DKVAKC / VITRI) + xdata DcePro, QS_DAM ; dai kin kieu DCE (chong + 1 moc).
 ;;;        - Dai trong kieu DCE: dai 1 nhanh (moc tren 135/6d, chan duoi 90/12d) tai moi thanh giua lop 1
 ;;;          tren (QS_DAMSET trang 2: 1 nhanh / dai kin). So hieu dai tach theo phi + be rong dam.
+;;;        - Dai con theo vi tri thanh (Excel Y4:Y6, QS_DAMSET trang 2): C / Q (2_4) / U (2-4), di het dam
+;;;          hoac khai bao rieng vung goi / vung nhip ; ve MC ngang, thong ke, shop.
 ;;;        - Moi dai gia cuong dam phu co them bo dai trong / dai 1 nhanh (tuy chon). Chieu dai dai C /
 ;;;          dai 1 nhanh: cong doan thang bo qua uon (nhu DCE) hoac theo tim (tuy chon).
 ;;;        - Bo cuc shop tuy chinh (QS_DAMSET trang 5): shop tren tren/duoi MC doc, dai thep GIA rieng,
@@ -145,6 +147,9 @@
   (list "LMOC1N"  "6"     "L moc dai 1 nhanh - dau tren (x d)"             "S")
   (list "LCHAN1N" "12"    "L chan dai 1 nhanh - dau duoi (x d)"            "S")
   (list "DAITRONGGC" "1"  "Cong dai trong / 1 nhanh tai dai gia cuong dam phu" "B")
+  (list "DAICONHET" "1"   "Dai con di het dam (1 khai bao cho ca dam)"     "B")
+  (list "DAICONGOI" "AUTO" "Dai con toan dam / vung goi: 3=C, 2_4=Q, 2-4=U"  "S")
+  (list "DAICONNHIP" "AUTO" "Dai con vung nhip (khi khong di het dam)"     "S")
   (list "LCKIEU"  "CONGDOAN" "Chieu dai dai C / 1 nhanh"                   "L" '("CONGDOAN" "TIM"))
   (list "DLMC"    "50"    "KC giua 2 lop thep - MC ngang (mm)"             "N")
   (list "DAIVB"   "20"    "Doan keo thep dai vai bo (x d)"                 "Z")
@@ -410,6 +415,7 @@
            ((wcmatch key "KGOI,KNHIP") (if (QSD:ParseFracs val) nil (strcat (nth 2 d) ": vd 0.25|0.25|0.15")))
            ((wcmatch key "LMOC*,MOCU*,LCHONG,LCHAN1N")
             (if (QSD:KDOk val) nil (strcat (nth 2 d) ": vd 12 | 12/6 | 8-12/10-10/12-8")))
+           ((wcmatch key "DAICON*") (if (QSD:ConOk val) nil (strcat (nth 2 d) ": vd 3 | 2_4 | 2-4 | 3,2_4 | AUTO | 0")))
            ((= key "CPLL") (if (QSD:NumsOk val "/" 0) nil (strcat (nth 2 d) ": vd 0 | 100 | 100/300")))
            ((= key "CATGOI") (if (QSD:NumsOk val "/" 3) nil (strcat (nth 2 d) ": vd 100/100/100")))
            ((= key "LAMTRON") (if (QSD:NumsOk val "/" 3) nil (strcat (nth 2 d) ": vd 1/50/50")))
@@ -582,7 +588,8 @@
    "KGOI" "KNHIP" "NEOT" "NEOB" "NEOG" "TRUCMCN" "LECHMCN" ; J2..J8
    "DKC" "KCC" "DAIC" "DKDAIC" "KCDAIC" "GIATCD" "BTLOT"   ; N2..N8
    "TOP" "BOT"                                          ; B11, B12
-   "CHOTRAI" "CHOPHAI"))                                ; QS_DAM: thep cho "KIEU|LOP|THEP|L|SOLE"
+   "CHOTRAI" "CHOPHAI"                                  ; QS_DAM: thep cho "KIEU|LOP|THEP|L|SOLE|TEN"
+   "CONHET" "CONGOI" "CONNHIP"))                        ; QS_DAM: dai con (Co/Khong, vung goi / toan dam, vung nhip)
 
 (defun QSD:RawHead (raw) (QSD:Get "HEAD" raw))
 (defun QSD:RawGrid (raw) (QSD:Get "GRID" raw))
@@ -685,6 +692,8 @@
           hd (QSD:Put "HS" hs hd)))
   (setq hd (QSD:Put "CHOTRAI" (QSD:ChoStr (mapcar '(lambda (r) (QSD:_c2 r 19)) '(3 4 5 6 7 8))) hd))
   (setq hd (QSD:Put "CHOPHAI" (QSD:ChoStr (mapcar '(lambda (r) (QSD:_c2 r 20)) '(3 4 5 6 7 8))) hd))
+  ;; dai con: Y4 di het dam, Y5 toan dam / vung goi, Y6 vung nhip
+  (setq hd (QSD:Put "CONHET" (QSD:_c2 4 25) hd) hd (QSD:Put "CONGOI" (QSD:_c2 5 25) hd) hd (QSD:Put "CONNHIP" (QSD:_c2 6 25) hd))
   (QSD:Put "HEAD" hd raw))
 
 ;;; ---- sheet nhap lieu QS_DAM_V1 (ban cu): cot A = ma dong, cot D.. = Goi1, Nhip1, Goi2 ... ----
@@ -1263,6 +1272,11 @@
         (cons "ZONES" (reverse zones)) (cons "SB" (reverse sb)) (cons "HANGERS" (reverse hangers))
         (cons "COLSTIR" cols) (cons "CDO" cdo) (cons "CTIE" ctie) (cons "LOT" lot) (cons "LTT" ltt)
         (cons "KT" kT) (cons "KB" kB) (cons "CHO" cho)
+        (cons "CON" (list (cond ((wcmatch (strcase (QSD:H raw "CONHET")) "C*,1,T*") T)
+                                ((wcmatch (strcase (QSD:H raw "CONHET")) "K*,0") nil)
+                                (T (QSD:CfgB "DAICONHET")))
+                          (QSD:ParseCon (if (/= (QSD:H raw "CONGOI") "") (QSD:H raw "CONGOI") (QSD:Cfg "DAICONGOI")))
+                          (QSD:ParseCon (if (/= (QSD:H raw "CONNHIP") "") (QSD:H raw "CONNHIP") (QSD:Cfg "DAICONNHIP")))))
         (cons "CHOTEN" (list (cons "L" (QSD:ChoTen raw "L")) (cons "R" (QSD:ChoTen raw "R"))))
         (cons "WARN" (reverse warn))))
 
@@ -1605,7 +1619,73 @@
 
 ;; so hieu cac loai thep phu (tiep sau so hieu thep chu):
 ;; "S<d>" dai chinh, "GC<d>" dai gia cuong dam giao, "IN<d>" dai trong, "V<d>" vai bo, "CDO" thep C do, "CTIE" dai C noi thep gia
-(defun QSD:StirMarks (beam / n r add sd cdo ctie sp nl)
+;;; ---- DAI CON: nhanh dai trong theo so thu tu thanh lop 1 tren (1 = trai .. n = phai) ----
+;;;  "3" = dai C (1 nhanh) tai thanh 3 ; "2_4" = dai Q (kin) om thanh 2..4 ; "2-4" = dai U thanh 2..4
+;;;  ghep "3,2_4" (phan cach , ; + khoang trang) ; "0" / "KHONG" = khong co dai con ; "" / "AUTO" = tu dong
+(defun QSD:ParseCon (s / r it p a b)
+  (setq s (strcase (QSD:Trim (if (= (type s) 'STR) s ""))))
+  (cond
+    ((or (= s "") (= s "AUTO")) nil)
+    ((member s '("0" "KHONG" "NONE")) (list (list "NONE" 0 0)))
+    (T
+     (foreach it (QSD:Split (vl-string-translate ";+ " ",,," s) ",")
+       (setq it (QSD:Trim it))
+       (cond ((= it "") nil)
+             ((setq p (vl-string-search "_" it)) (setq r (cons (list "Q" (atoi (substr it 1 p)) (atoi (substr it (+ p 2)))) r)))
+             ((setq p (vl-string-search "-" it)) (setq r (cons (list "U" (atoi (substr it 1 p)) (atoi (substr it (+ p 2)))) r)))
+             (T (setq r (cons (list "C" (atoi it) (atoi it)) r)))))
+     (reverse r))))
+(defun QSD:ConOk (s / l ok)
+  (setq s (strcase (QSD:Trim s)) ok T)
+  (if (member s '("" "AUTO" "0" "KHONG" "NONE")) T
+    (progn
+      (foreach it (QSD:Split (vl-string-translate ";+ " ",,," s) ",")
+        (setq it (QSD:Trim it))
+        (if (and (/= it "") (not (and (QSD:NumsOk (vl-string-translate "_-" "//" it) "/" 0)
+                                      (<= (length (QSD:Split (vl-string-translate "_-" "//" it) "/")) 2)
+                                      (> (atoi it) 0))))
+          (setq ok nil)))
+      ok)))
+;; x tam thanh thu i (1..n) lop 1 tren so voi tam bo thep ; xe1 = nua khoang cach 2 thanh bien
+(defun QSD:BarXi (i n xe1) (if (> n 1) (+ (- xe1) (* (1- i) (/ (* 2.0 xe1) (1- n)))) 0.0))
+;; kep chi so theo so thanh n ; nil = bo qua
+(defun QSD:ConFix (it n / a b)
+  (setq a (max 1 (min (cadr it) (caddr it))) b (min n (max (cadr it) (caddr it))))
+  (cond ((= (car it) "NONE") nil) ((> a n) nil) ((and (/= (car it) "C") (<= b a)) nil) (T (list (car it) a b))))
+;; khai bao dai con ap dung tai x: di het dam -> CONGOI ; khong -> vung dau / cuoi nhip (nhip co > 1 vung dai)
+;; hoac ngoai vung dai = vung goi, con lai = vung nhip
+(defun QSD:ConAt (beam x / c z zs)
+  (setq c (QSD:Get "CON" beam))
+  (cond
+    ((null c) nil)
+    ((car c) (cadr c))
+    (T
+     (setq z (QSD:ZoneAt beam x))
+     (if z (setq zs (vl-remove-if-not '(lambda (z2) (= (car z2) (car z))) (QSD:Get "ZONES" beam))))
+     (if (or (null z) (and (> (length zs) 1) (or (equal z (car zs)) (equal z (QSD:Last zs)))))
+       (cadr c) (caddr c)))))
+;; dai con tai x -> nil (khong khai bao) | (list items) ; item = (kind a b key W dt nL1 dL1 xe1)
+(defun QSD:ConList (beam x ds sp / con bars nL1 dL1 b xe1 dt r it w)
+  (setq con (QSD:ConAt beam x))
+  (if con
+    (progn
+      (setq b (QSD:WidthAt beam x) bars (QSD:BarsAt beam x) nL1 0 dL1 0 r nil)
+      (foreach bb bars (if (and (= (car bb) "T") (= (nth 1 bb) 1)) (setq nL1 (+ nL1 (nth 2 bb)) dL1 (max dL1 (nth 3 bb)))))
+      (setq dt (if (and sp (nth 6 sp)) (car (nth 6 sp)) ds))
+      (setq xe1 (- (/ b 2.0) (/ (+ (QSD:CfgN "BTBVL") (QSD:CfgN "BTBVR")) 2.0) ds (/ dL1 2.0)))
+      (foreach it con
+        (if (and (> nL1 0) (setq it (QSD:ConFix it nL1)))
+          (progn
+            (setq w (+ (- (QSD:BarXi (caddr it) nL1 xe1) (QSD:BarXi (cadr it) nL1 xe1)) dL1 dt))
+            (setq r (cons (list (car it) (cadr it) (caddr it)
+                                (if (= (car it) "C") (QSD:SKey "IN1N" dt "")
+                                  (QSD:SKey (if (= (car it) "U") "INU" "INQ") dt (QSD:NumStr (QSD:Round w 1.0))))
+                                w dt nL1 dL1 xe1)
+                          r)))))
+      (list (reverse r)))
+    nil))
+
+(defun QSD:StirMarks (beam / n r add sd cdo ctie sp nl cl)
   (setq n (length (QSD:Get "BARS" beam)) r nil)
   (defun QSD:_add (k) (if (not (assoc k r)) (setq n (1+ n) r (append r (list (cons k (itoa n)))))))
   ;; dai / dai gia cuong: moi (phi, be rong dam) 1 so hieu (nhip doi b -> hinh khac -> so hieu khac, giong DCE)
@@ -1619,9 +1699,12 @@
     (setq sp (nth (car z) (QSD:Get "SPANS" beam)) nl 0)
     (foreach bb (QSD:BarsAt beam (/ (+ (nth 3 z) (nth 4 z)) 2.0))
       (if (and (= (car bb) "T") (= (nth 1 bb) 1)) (setq nl (+ nl (nth 2 bb)))))
-    (if (and (>= nl 3) (or (nth 6 sp) (>= nl 4)))
-      (QSD:_add (QSD:InKey (if (nth 6 sp) (car (nth 6 sp)) (nth 1 z))
-                           (QSD:WidthAt beam (/ (+ (nth 3 z) (nth 4 z)) 2.0)) nl))))
+    (setq cl (QSD:ConList beam (/ (+ (nth 3 z) (nth 4 z)) 2.0) (nth 1 z) sp))
+    (cond
+      (cl (foreach it (car cl) (QSD:_add (nth 3 it))))
+      ((and (>= nl 3) (or (nth 6 sp) (>= nl 4)))
+       (QSD:_add (QSD:InKey (if (nth 6 sp) (car (nth 6 sp)) (nth 1 z))
+                            (QSD:WidthAt beam (/ (+ (nth 3 z) (nth 4 z)) 2.0)) nl)))))
   (foreach hg (QSD:Get "HANGERS" beam) (QSD:_add (strcat "V" (itoa (nth 4 hg)))))
   (setq cdo (QSD:Get "CDO" beam) ctie (QSD:Get "CTIE" beam))
   ;; thep C do / dai C noi thep gia: 1 so hieu cho moi be rong dam (be rong tai giua thanh mang, giong thong ke)
@@ -1959,7 +2042,8 @@
   (setq l (mapcar '(lambda (b) (strcat (nth 0 b) (itoa (nth 1 b)) (nth 8 b) "-" (itoa (nth 2 b)) "t" (itoa (nth 3 b))))
                   (QSD:BarsAt beam x)))
   (setq z (QSD:ZoneAt beam x))
-  (strcat (QSD:NumStr (QSD:WidthAt beam x)) "|" (QSD:Join (QSD:Sort l '<) ",") "|" (if z (strcat (QSD:NumStr (nth 1 z)) "a" (QSD:NumStr (nth 2 z))) "")))
+  (strcat (QSD:NumStr (QSD:WidthAt beam x)) "|" (QSD:Join (QSD:Sort l '<) ",") "|" (if z (strcat (QSD:NumStr (nth 1 z)) "a" (QSD:NumStr (nth 2 z))) "")
+          "|" (vl-princ-to-string (QSD:ConAt beam x))))
 
 ;; moi nhip 3 MC (goi trai / giua / phai), gop MC trung nhau
 (defun QSD:MakeSecs (beam / sigs sp ln sig p num res)
@@ -2117,7 +2201,7 @@
 (defun QSD:DrawSection (beam x num cx cy / xs tn b h hs inv sides dl z ds bars yl xe grp p pts tagL tagR ytr
                           lay y ygs rows gs sm sp inner nb cdo ctie lot lays yg1 dC mode
                           nL1 ytop ybt cvT cvB cvL cvR yST ySB xSL xSR bcx dLay dL1 xe1 yT1 tlk xin dG yA yB dct xr ydim ncT ncB
-                          yB1 k xt yt2)
+                          yB1 k xt yt2 cl ncl)
   (setq tn (QSD:TN) b (QSD:WidthAt beam x) h (QSD:Get "H" beam) hs (QSD:Get "HS" beam)
         inv (QSD:Get "SLABINV" beam) sides (QSD:Get "SLABSIDE" beam)
         dl (QSD:CfgN "DLMC") sm (QSD:StirMarks beam))
@@ -2207,8 +2291,32 @@
                             (list (cons "SH" (nth 10 (cadddr g))) (cons "DKVAKC" (QSD:BarTxt (car g) (cadr g))))))))))
       (setq lay (1+ lay))))
   ;; ---- dai trong (dong 27 nhip, hoac tu dong khi lop 1 co >= 4 thanh): om thanh thu 2 va thu n-1 ----
-  (setq inner (if (and sp (nth 6 sp)) (nth 6 sp) (if (and z (>= nL1 4)) (list ds (nth 2 z) (nth 2 z)) nil)))
-  (if (and inner (>= nL1 3) xe1)
+  (setq cl (if sp (QSD:ConList beam x ds sp) nil))
+  (setq inner (if (and sp (nth 6 sp)) (nth 6 sp) (if (and z (or cl (>= nL1 4))) (list ds (nth 2 z) (nth 2 z)) nil)))
+  (if (and cl inner xe1 yT1 yB1)
+    ;; dai con khai bao: C = 1 nhanh sat trai thanh ; Q = dai kin / U = dai U om thanh a..b
+    (progn
+      (setq k 0 yt2 (+ (- cy h) (* 0.45 h)) ncl nil)
+      (foreach it (car cl)
+        (if (= (car it) "C")
+          (progn
+            (setq xt (- (+ bcx (QSD:BarXi (cadr it) nL1 xe1)) (/ dL1 2.0) (/ (car inner) 2.0)))
+            (QSD:ShpDraw (QSD:ShpPts "L1" 0.0 (- yT1 yB1) (car inner) 1.0 0.0) 0.0 (- yT1 yB1) xt yB1 "QS_ThepDai")
+            (QSD:PL (list (list xt yt2) (list tagR yt2)) "QS_Dim" nil 0.0)
+            (setq ncl (nth 3 it)))
+          (progn
+            (setq xt (- (+ bcx (QSD:BarXi (cadr it) nL1 xe1)) (/ dL1 2.0) (/ (car inner) 2.0))
+                  xin (+ (+ bcx (QSD:BarXi (caddr it) nL1 xe1)) (/ dL1 2.0) (/ (car inner) 2.0)))
+            (if (= (car it) "U")
+              (QSD:StirU xt xin (- yST ds) (+ ySB ds) (car inner) "T")
+              (QSD:StirPL xt xin (- yST ds) (+ ySB ds) (car inner) "T"))
+            (setq y (- cy (* (+ 0.75 (* 0.07 k)) h)) k (1+ k))
+            (QSD:TagPts (list (list xt y) (list tagL y)) "Dce_KhtMcThepChu" tn (QSD:SM sm (nth 3 it))
+                        (strcat (QSD:DaiTxt nil (car inner) (cadr inner)) (if (= (car it) "U") " (U)" "")) nil))))
+      (if ncl
+        (QSD:Insert "Dce_KhtMcThepTangCuong" tagR yt2 tn "QS_Block"
+                    (list (cons "SH" (QSD:SM sm ncl)) (cons "DKVAKC" (QSD:DaiTxt nil (car inner) (cadr inner))))))))
+  (if (and (null cl) inner (>= nL1 3) xe1)
     (if (and (= (QSD:Cfg "DAITRONGKIEU") "1NHANH") yT1 yB1)
       ;; kieu DCE: 1 dai 1 nhanh sat trai moi thanh giua lop 1 tren (thanh 2 .. n-1), moc tren vong thanh tren,
       ;; chan duoi tai lop 1 duoi ; 1 tag chung ben phai
@@ -2959,12 +3067,33 @@
                                              " Q" (QSD:NumStr ang) " m" (QSD:NumStr (QSD:RndCT len))))
 ;; dai trong / dai 1 nhanh tai vi tri x (nhip sp), ds = phi dai ngoai tai do ;
   ;; q0 = so dai ngoai ; sz = buoc dai ngoai (nil = moi dai ngoai 1 bo dai trong, dung cho dai gia cuong dam phu)
-  (defun QSD:_inadd (x ds sp q0 sz / b hh tlk bars nL1 dL1 inner xe1 p xin cnt)
+  (defun QSD:_inadd (x ds sp q0 sz / b hh tlk bars nL1 dL1 inner xe1 p xin cnt cl)
     (setq b (QSD:WidthAt beam x) hh (- h cvT cvB ds) tlk (nth 7 sp))
+    ;; dai con khai bao theo vi tri thanh (C / Q / U)
+    (if (setq cl (QSD:ConList beam x ds sp))
+      (progn
+        (setq cnt (if sz (max 1 (fix (+ 0.5 (* q0 (/ (float sz) (max 1.0 (if (nth 6 sp) (nth 1 (nth 6 sp)) sz))))))) q0))
+        (foreach it (car cl)
+          (cond
+            ((= (car it) "C")
+             (QSD:_sadd (QSD:SM sm (nth 3 it)) (nth 5 it)
+                        (strcat "1 nhanh h" (QSD:NumStr (QSD:RndCT hh)) " Q" (QSD:Cfg "GOC1N")
+                                " m" (QSD:NumStr (QSD:RndCT (QSD:HookLen "LMOC1N" (nth 5 it))))
+                                " c" (QSD:NumStr (QSD:RndCT (QSD:HookLen "LCHAN1N" (nth 5 it)))))
+                        (list "L1" 0.0 hh (nth 5 it) 1.0) cnt))
+            ((= (car it) "U")
+             (QSD:_sadd (QSD:SM sm (nth 3 it)) (nth 5 it)
+                        (strcat "U " (QSD:NumStr (QSD:RndCT (nth 4 it))) "x" (QSD:NumStr (QSD:RndCT (- hh (* 2 ds)))))
+                        (list "UT" (nth 4 it) (- hh (* 2 ds)) (nth 5 it) 1.0) cnt))
+            (T
+             (QSD:_sadd (QSD:SM sm (nth 3 it)) (nth 5 it)
+                        (QSD:_txt "" (nth 4 it) (- hh (* 2 ds)) (QSD:CfgN "GOCTRONG") (QSD:HookLen "LMOCTRONG" (nth 5 it)))
+                        (list "KINT" (nth 4 it) (- hh (* 2 ds)) (nth 5 it) 1.0) cnt))))
+        (setq sz nil q0 0)))
     (setq bars (QSD:BarsAt beam x) nL1 0 dL1 0)
     (foreach bb bars (if (and (= (car bb) "T") (= (nth 1 bb) 1)) (setq nL1 (+ nL1 (nth 2 bb)) dL1 (max dL1 (nth 3 bb)))))
     (setq inner (if (nth 6 sp) (nth 6 sp) (if (>= nL1 4) (list ds (if sz sz 100.0) (if sz sz 100.0)) nil)))
-    (if (and inner (>= nL1 3))
+    (if (and (null cl) inner (>= nL1 3))
       (progn
         (setq xe1 (- (/ b 2.0) (/ (+ cvL cvR) 2.0) ds (/ dL1 2.0)) p (- xe1 (/ (* 2.0 xe1) (1- (max 3 nL1)))))
         (setq xin (* 2.0 (+ p (/ dL1 2.0) (/ (car inner) 2.0))))
@@ -4187,6 +4316,8 @@
       "QS_DAMSET  : cai dat 6 trang (Hien thi / Dai-Moc / Neo-Cho / Shop / Bo cuc shop / MBKC) + nut Bang L noi."
       "Bo cuc shop (trang 5): mac dinh giong DCE - shop TREN tren MC doc; duoi MC doc: dai THEP GIA sat tren"
       "  dai THEP DUOI; shop THEP DAI ben phai khung shop TREN (cach 810, lui 350, moi hinh cach 1000)."
+      "Dai con theo vi tri thanh lop 1 tren (Excel Y4:Y6 / QS_DAMSET trang 2): 3 = dai C thanh 3, 2_4 = dai Q"
+      "  om thanh 2..4, 2-4 = dai U, ghep 3,2_4 ; 0 = khong ; AUTO = tu dong. Di het dam hoac rieng vung goi / nhip."
       "Dai trong: 1 nhanh moi thanh giua lop 1 tren (kieu DCE) hoac dai kin om thanh 2 / n-1 (trang 2)."
       "  Tai dai gia cuong dam phu cong them dai trong. L dai C / 1 nhanh: cong doan (bo qua uon) hoac theo tim."
       "Thep cho 2 dau: Excel S3:T7 hoac QS_DAMSET trang 3 - Cho thang (keo ra L cho) / Coupler (dung tai mep)."
