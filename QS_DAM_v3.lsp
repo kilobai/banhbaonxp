@@ -1,6 +1,7 @@
 ;;;=============================================================================
 ;;;  QS_DAM.lsp  -  v3.1  (1 file duy nhat, DCL tu sinh)
-;;;  v3.1: - SHOP THEP DAI giong DCE (dam.dwg): hinh 1:1 kich thuoc ngoai, dim tung doan, tag
+;;;  v3.1: - Lenh QS_DAMMB: nhan dang dam tren MBKC (truc, goi, dam phu, ten / kich thuoc) -> Excel V2.
+;;;        - SHOP THEP DAI giong DCE (dam.dwg): hinh 1:1 kich thuoc ngoai, dim tung doan, tag
 ;;;          Dce_KhtThepDai2 (SH / DKVAKC / VITRI) + xdata DcePro, QS_DAM ; dai kin kieu DCE (chong + 1 moc).
 ;;;        - Dai trong kieu DCE: dai 1 nhanh (moc tren 135/6d, chan duoi 90/12d) tai moi thanh giua lop 1
 ;;;          tren (QS_DAMSET trang 2: 1 nhanh / dai kin). So hieu dai tach theo phi + be rong dam.
@@ -42,6 +43,8 @@
 ;;;                 L cay + chieu dai noi theo phi va theo lop tren/duoi, noi
 ;;;                 so le, uu tien thu vien L -> ve shop thep lop tren / lop
 ;;;                 duoi, bang thong ke doan cat, xuat CSV.
+;;;    QS_DAMMB   - Pick dau / cuoi dam tren MAT BANG KET CAU -> nhan dang truc, goi (cot / vach / dam),
+;;;                 dam phu, ten + b x h dam -> ghi sheet moi (copy MAU) trong QS_DAM_NhapLieu.xlsx.
 ;;;    QS_DAMSET  - Cai dat 4 trang (hop thoai DCL; neu DCL loi -> sua tren dong lenh).
 ;;;    QS_DAMNOI  - Bang chieu dai noi thep theo phi.
 ;;;    QS_DAMHELP - In huong dan.
@@ -227,6 +230,17 @@
   (list "DAIDIM"  "1"     "Shop dai: dim tung doan"                        "B")
   (list "BANGVT"  "DUOI"  "Vi tri bang thong ke"                           "L" '("DUOI" "PHAI"))
   (list "CHOSHOP" "1"     "Shop: ve mach ngung / coupler thep cho 2 dau"   "B")
+  ;; ===== TRANG 6: MAT BANG KET CAU (lenh QS_DAMMB) - mau layer dang wcmatch, cach nhau dau phay =====
+  (list "MBLAYTRUC" "*TRUC*,*AXIS*,*GRID*" "MBKC: layer duong truc"              "S")
+  (list "MBLAYTENTRUC" "*TRUC*,*AXIS*,*GRID*" "MBKC: layer ten truc (text / block)" "S")
+  (list "MBLAYCOT" "*COT*,*COL*,*VACH*,*WALL*,*LOI*" "MBKC: layer cot / vach (goi)" "S")
+  (list "MBLAYDAM" "*DAM*,*BEAM*" "MBKC: layer net dam"                       "S")
+  (list "MBLAYTEXT" "*"   "MBKC: layer text ten dam (vd B1 (220x500))"      "S")
+  (list "MBDV"    "1"     "MBKC: 1 don vi ban ve = ? mm"                    "N")
+  (list "MBRTRUC" "1500"  "MBKC: ban kinh tim ten truc quanh dau truc (mm)" "N")
+  (list "MBBMAX"  "1500"  "MBKC: be rong dam / dam phu toi da (mm)"         "N")
+  (list "MBDAI"   ""      "MBKC: thep dai ghi san moi nhip (vd 10-100/200)"  "S")
+  (list "MBDGC"   ""      "MBKC: dai gia cuong ghi san tai dam phu (vd 10t10a50)" "S")
   ;; ===== BANG CHIEU DAI NOI (lenh QS_DAMNOI) =====
   (list "UUTIENLAPMM" "1" "Uu tien noi theo bang du lieu mm"               "B")
   (list "LAPMM1"  "10-490/340/340/500;12-650/450/450/650;14-800/560/560/800;16-980/680/680/980;18-1130/790/790/1130;20-1290/900/900/1290;22-1450/1010/1010/1450;25-1690/1180/1180/1690;28-1900/1330/1330/1900;32-2200/1540/1540/2200"
@@ -3317,6 +3331,463 @@
                   (QSD:Msg (strcat ">> Xong: " (itoa ncut) " nhom thanh duoc cat. Kiem tra vung gach cheo = vung KHONG duoc noi."))))))))))
   (princ))
 ;;;-----------------------------------------------------------------------------
+;;; 20. LENH QS_DAMMB: NHAN DANG DAM TREN MAT BANG KET CAU (MBKC) -> GHI SHEET EXCEL QS_DAM_V2
+;;;   - Pick diem DAU / CUOI tren tim dam (ngoai 2 goi bien). Toa do cuc bo: u doc dam, v vuong goc (mm).
+;;;   - Net bien dam (layer MBLAYDAM) song song -> b, can lai tim dam.
+;;;   - Cot / vach (MBLAYCOT) cat tim dam -> goi ; truc (MBLAYTRUC) cat tim -> ten truc (text / block
+;;;     tren MBLAYTENTRUC gan dau truc) + lech truc ; net dam cat ngang -> dam phu trong nhip / dam giao tai cot.
+;;;   - Text ten dam gan tim: "B137 (400x1000)" -> ten, b, h.
+;;;   - Excel: copy sheet MAU cua file QS_DAM_NhapLieu dang mo -> sheet moi ten dam, ghi o theo bo cuc V2.
+;;;   Nhan dang theo hinh hoc ban ve -> KY SU KIEM TRA LAI so lieu tren Excel truoc khi ve.
+;;;-----------------------------------------------------------------------------
+(defun QSD:MbPat (k) (strcase (QSD:Cfg k)))
+(defun QSD:MbLay (ent k) (wcmatch (strcase (cdr (assoc 8 (entget ent)))) (QSD:MbPat k)))
+
+;; tap doi tuong theo loai + mau layer (khong phu thuoc khung nhin)
+(defun QSD:MbSS (types k / ss i r e)
+  (setq ss (ssget "_X" (list (cons 0 types) (cons 8 (QSD:MbPat k)) '(410 . "Model"))) r nil i 0)
+  (if ss (repeat (sslength ss) (setq r (cons (ssname ss i) r) i (1+ i))))
+  (reverse r))
+
+;; cac doan thang (WCS 2D) cua 1 doi tuong: LINE, LWPOLYLINE (bo bulge), CIRCLE (16 canh), INSERT (hop bao)
+(defun QSD:MbSegs (ent / ed tp pts r c rr i a mn mx o)
+  (setq ed (entget ent) tp (cdr (assoc 0 ed)) r nil)
+  (cond
+    ((= tp "LINE")
+     (setq r (list (list (QSD:P2d (cdr (assoc 10 ed))) (QSD:P2d (cdr (assoc 11 ed)))))))
+    ((= tp "LWPOLYLINE")
+     (setq pts nil)
+     (foreach p ed (if (= (car p) 10) (setq pts (cons (QSD:P2d (cdr p)) pts))))
+     (setq pts (reverse pts))
+     (if (= 1 (logand 1 (cdr (assoc 70 ed)))) (setq pts (append pts (list (car pts)))))
+     (while (cdr pts) (setq r (cons (list (car pts) (cadr pts)) r) pts (cdr pts))))
+    ((= tp "CIRCLE")
+     (setq c (QSD:P2d (cdr (assoc 10 ed))) rr (cdr (assoc 40 ed)) i 0 pts nil)
+     (repeat 17 (setq a (* i (/ pi 8.0)) pts (cons (list (+ (car c) (* rr (cos a))) (+ (cadr c) (* rr (sin a)))) pts) i (1+ i)))
+     (while (cdr pts) (setq r (cons (list (car pts) (cadr pts)) r) pts (cdr pts))))
+    ((= tp "INSERT")
+     (setq o (vlax-ename->vla-object ent))
+     (if (not (vl-catch-all-error-p (vl-catch-all-apply '(lambda () (vla-GetBoundingBox o 'mn 'mx)))))
+       (progn
+         (setq mn (vlax-safearray->list mn) mx (vlax-safearray->list mx))
+         (setq pts (list (list (car mn) (cadr mn)) (list (car mx) (cadr mn)) (list (car mx) (cadr mx))
+                         (list (car mn) (cadr mx)) (list (car mn) (cadr mn))))
+         (while (cdr pts) (setq r (cons (list (car pts) (cadr pts)) r) pts (cdr pts)))))))
+  r)
+(defun QSD:P2d (p) (list (car p) (cadr p)))
+
+;; he toa do cuc bo cua dam: goc o, huong ex (don vi), k = mm / don vi ban ve
+(defun QSD:MbFrame (p1 p2 k / ex)
+  (setq ex (QSD:VUnit (QSD:V- p2 p1)))
+  (list p1 ex (list (- (cadr ex)) (car ex)) k))
+(defun QSD:MbLoc (fr p / d)
+  (setq d (QSD:V- p (car fr)))
+  (list (* (nth 3 fr) (+ (* (car d) (car (cadr fr))) (* (cadr d) (cadr (cadr fr)))))
+        (* (nth 3 fr) (+ (* (car d) (car (caddr fr))) (* (cadr d) (cadr (caddr fr)))))))
+(defun QSD:MbWcs (fr u v / k)
+  (setq k (nth 3 fr))
+  (QSD:PAdd (QSD:PAdd (car fr) (cadr fr) (/ u k)) (caddr fr) (/ v k)))
+(defun QSD:MbLocSeg (fr sg) (list (QSD:MbLoc fr (car sg)) (QSD:MbLoc fr (cadr sg))))
+
+;; giao doan cuc bo voi truc v = 0 -> u (nil neu khong cat)
+(defun QSD:MbCutU (sg / a b)
+  (setq a (car sg) b (cadr sg))
+  (if (and (<= (* (cadr a) (cadr b)) 0.0) (> (abs (- (cadr a) (cadr b))) 1e-9))
+    (+ (car a) (* (- (car b) (car a)) (/ (- (cadr a)) (- (cadr b) (cadr a)))))
+    nil))
+;; sin goc giua doan va truc u
+(defun QSD:MbSin (sg / d l)
+  (setq d (QSD:V- (cadr sg) (car sg)) l (QSD:VLen d))
+  (if (> l 1e-9) (abs (/ (cadr d) l)) 0.0))
+
+;; ---- chuoi text: TEXT / MTEXT (bo ma dinh dang) / INSERT (thuoc tinh dau tien) ----
+(defun QSD:MtClean (s / r i c n)
+  (setq r "" i 1 n (strlen s))
+  (while (<= i n)
+    (setq c (substr s i 1))
+    (cond
+      ((= c "\\")
+       (setq c (substr s (1+ i) 1))
+       (cond ((member c '("P" "p" "N" "n" "~")) (setq r (strcat r " ") i (+ i 2)))
+             ((member c '("L" "l" "O" "o" "K" "k")) (setq i (+ i 2)))
+             ((member c '("\\" "{" "}")) (setq r (strcat r c) i (+ i 2)))
+             (T (setq i (+ i 2)) (while (and (<= i n) (/= (substr s i 1) ";")) (setq i (1+ i))) (setq i (1+ i)))))
+      ((member c '("{" "}")) (setq i (1+ i)))
+      (T (setq r (strcat r c) i (1+ i)))))
+  (QSD:Trim r))
+(defun QSD:MbTxt (ent / ed tp e s)
+  (setq ed (entget ent) tp (cdr (assoc 0 ed)))
+  (cond
+    ((= tp "TEXT") (QSD:Trim (cdr (assoc 1 ed))))
+    ((= tp "MTEXT")
+     (setq s "") (foreach p ed (if (member (car p) '(3 1)) (setq s (strcat s (cdr p)))))
+     (QSD:MtClean s))
+    ((= tp "INSERT")
+     (setq e (entnext ent) s nil)
+     (while (and e (null s) (= (cdr (assoc 0 (entget e))) "ATTRIB"))
+       (if (/= (QSD:Trim (cdr (assoc 1 (entget e)))) "") (setq s (QSD:Trim (cdr (assoc 1 (entget e))))))
+       (setq e (entnext e)))
+     s)
+    (T nil)))
+;; diem dat text (WCS 2D)
+(defun QSD:MbTxtPt (ent / ed)
+  (setq ed (entget ent))
+  (QSD:P2d (cdr (assoc (if (and (= (cdr (assoc 0 ed)) "TEXT") (/= 0 (cdr (assoc 72 ed)))) 11 10) ed))))
+
+;; "B137 (400x1000)" -> (400 1000 vi_tri_dau vi_tri_cuoi) ; nil neu khong co bxh
+(defun QSD:SizeIn (s / u i n j a b c k)
+  (setq u (strcase s) n (strlen u) i 1 k nil)
+  (setq c (vl-catch-all-apply 'chr (list 215)))
+  (if (= (type c) 'STR) (setq u (QSD:Replace u c "X")))
+  (defun QSD:_dg (ch) (and (>= (ascii ch) 48) (<= (ascii ch) 57)))
+  (while (and (null k) (<= i n))
+    (if (QSD:_dg (substr u i 1))
+      (progn
+        (setq j i)
+        (while (and (<= j n) (QSD:_dg (substr u j 1))) (setq j (1+ j)))
+        (setq a (atoi (substr u i (- j i))) c j)
+        (while (and (<= c n) (= (substr u c 1) " ")) (setq c (1+ c)))
+        (if (and (<= c n) (member (substr u c 1) '("X" "*")))
+          (progn
+            (setq c (1+ c))
+            (while (and (<= c n) (= (substr u c 1) " ")) (setq c (1+ c)))
+            (setq b c)
+            (while (and (<= c n) (QSD:_dg (substr u c 1))) (setq c (1+ c)))
+            (if (and (> c b) (> a 0)) (setq k (list (float a) (float (atoi (substr u b (- c b)))) i c)))))
+        (setq i (max (1+ i) j)))
+      (setq i (1+ i))))
+  k)
+;; ten dam = text bo phan bxh va dau ngoac
+(defun QSD:MbName (s sz / r)
+  (setq r (if sz (strcat (substr s 1 (1- (nth 2 sz))) " " (substr s (nth 3 sz))) s))
+  (QSD:Trim (vl-string-trim " -_:;,.()[]" (QSD:Trim (vl-string-translate "()[]" "    " r)))))
+
+;; ---- nhan dang ----
+;; tra ve alist ket qua (toa do mm doc dam, u = 0 tai diem pick dau sau khi can tim)
+(defun QSD:MbScan (p1 p2 / k fr L bmax es sg lsg vs vp vn va vb b vc sups loose u us iv m grids gtx g t1 d best
+                          cbs cand used a2 sz txts nm h lab sup s1 w dm)
+  (setq k (QSD:CfgN "MBDV") bmax (QSD:CfgN "MBBMAX") m 2000.0)
+  (setq fr (QSD:MbFrame p1 p2 k) L (* k (distance p1 p2)))
+  ;; 1. net bien dam song song -> b + can tim
+  (setq es (QSD:MbSS "LINE,LWPOLYLINE" "MBLAYDAM") vs nil lsg nil)
+  (foreach e es
+    (foreach sg (QSD:MbSegs e)
+      (setq sg (QSD:MbLocSeg fr sg))
+      (setq lsg (cons sg lsg))
+      (if (and (< (QSD:MbSin sg) 0.087)
+               (< (abs (cadr (car sg))) bmax)
+               (> (- (min L (max (car (car sg)) (car (cadr sg)))) (max 0.0 (min (car (car sg)) (car (cadr sg))))) (* 0.2 L)))
+        (setq vs (cons (/ (+ (cadr (car sg)) (cadr (cadr sg))) 2.0) vs)))))
+  (setq vp nil vn nil)
+  (foreach v vs (if (> v 20.0) (if (or (null vp) (< v vp)) (setq vp v)) (if (< v -20.0) (if (or (null vn) (> v vn)) (setq vn v)))))
+  (if (and vp vn (<= (- vp vn) bmax))
+    (setq b (- vp vn) vc (/ (+ vp vn) 2.0))
+    (setq b nil vc 0.0))
+  (if (> (abs vc) 0.5)
+    (progn (setq p1 (QSD:MbWcs fr 0.0 vc) p2 (QSD:MbWcs fr L vc) fr (QSD:MbFrame p1 p2 k))
+           (setq lsg (mapcar '(lambda (sg) (list (list (car (car sg)) (- (cadr (car sg)) vc)) (list (car (cadr sg)) (- (cadr (cadr sg)) vc)))) lsg))))
+  ;; 2. goi: cot / vach cat tim dam
+  (setq sups nil loose nil)
+  (foreach e (QSD:MbSS "LINE,LWPOLYLINE,CIRCLE,INSERT" "MBLAYCOT")
+    (setq us nil)
+    (foreach sg (QSD:MbSegs e)
+      (if (setq u (QSD:MbCutU (QSD:MbLocSeg fr sg)))
+        (if (and (> u (- m)) (< u (+ L m))) (setq us (cons u us)))))
+    (cond ((>= (length us) 2) (setq sups (cons (list (apply 'min us) (apply 'max us)) sups)))
+          (us (setq loose (append us loose)))))
+  ;; net cot roi rac (LINE): ghep tung cap lien tiep
+  (setq loose (QSD:Sort loose '<))
+  (while (cdr loose)
+    (if (< (- (cadr loose) (car loose)) 3000.0)
+      (setq sups (cons (list (car loose) (cadr loose)) sups) loose (cddr loose))
+      (setq loose (cdr loose))))
+  (setq sups (QSD:MbMerge sups))
+  (setq sups (vl-remove-if '(lambda (s1) (or (< (cadr s1) -50.0) (> (car s1) (+ L 50.0)) (< (- (cadr s1) (car s1)) 50.0))) sups))
+  ;; 3. dam cat ngang (net dam vuong goc toi sat bien dam chinh)
+  (setq cand nil)
+  (foreach sg lsg
+    (if (and (> (QSD:MbSin sg) 0.5)
+             ;; net toi sat bien dam chinh (hoac cat xuyen qua tim)
+             (<= (if (<= (* (cadr (car sg)) (cadr (cadr sg))) 0.0) 0.0 (min (abs (cadr (car sg))) (abs (cadr (cadr sg)))))
+                 (+ (if b (/ b 2.0) 300.0) 150.0))
+             ;; bo net ngang chi nam trong be rong dam chinh (net dau dam / mep cot)
+             (> (max (abs (cadr (car sg))) (abs (cadr (cadr sg)))) (+ (if b (/ b 2.0) 300.0) 100.0))
+             (> (abs (- (cadr (car sg)) (cadr (cadr sg)))) 1.0))
+      (progn
+        (setq u (+ (car (car sg)) (* (- (car (cadr sg)) (car (car sg))) (/ (- (cadr (car sg))) (- (cadr (cadr sg)) (cadr (car sg)))))))
+        (if (and (> u -600.0) (< u (+ L 600.0))) (setq cand (cons (list u sg) cand))))))
+  (setq cand (QSD:Sort cand '(lambda (a2 b2) (< (car a2) (car b2)))) cbs nil)
+  ;; 2 nua net dam phu o 2 ben dam chinh (cung u) -> 1 net
+  (setq used nil)
+  (foreach c1 cand (if (not (and used (< (abs (- (car c1) (car (car used)))) 5.0))) (setq used (cons c1 used))))
+  (setq cand (reverse used))
+  (while (cdr cand)
+    (setq w (- (car (cadr cand)) (car (car cand))))
+    (if (and (>= w 100.0) (<= w bmax)
+             (< (abs (- (QSD:MbSin (cadr (car cand))) (QSD:MbSin (cadr (cadr cand))))) 0.05))
+      (setq cbs (cons (list (/ (+ (car (car cand)) (car (cadr cand))) 2.0) w
+                            (QSD:MbSide (cadr (car cand))) (QSD:MbSide (cadr (cadr cand))))
+                      cbs)
+            cand (cddr cand))
+      (setq cand (cdr cand))))
+  (setq cbs (reverse cbs))
+  ;; 4. truc cat tim dam + ten truc
+  (setq gtx (mapcar '(lambda (e) (list (QSD:MbTxt e) (QSD:MbTxtPt e)))
+                    (QSD:MbSS "TEXT,MTEXT,INSERT" "MBLAYTENTRUC")))
+  (setq gtx (vl-remove-if '(lambda (x) (or (null (car x)) (= (car x) ""))) gtx) grids nil)
+  (foreach e (QSD:MbSS "LINE,LWPOLYLINE" "MBLAYTRUC")
+    (foreach sg (QSD:MbSegs e)
+      (setq s1 (QSD:MbLocSeg fr sg))
+      (if (and (> (QSD:MbSin s1) 0.5) (setq u (QSD:MbCutU s1)) (> u (- m)) (< u (+ L m))
+               (not (vl-remove-if-not '(lambda (g) (< (abs (- (car g) u)) 1.0)) grids)))
+        (progn
+          (setq best nil d nil)
+          (foreach t1 gtx
+            (foreach pe sg
+              (if (and (< (* k (distance pe (cadr t1))) (QSD:CfgN "MBRTRUC"))
+                       (or (null d) (< (distance pe (cadr t1)) d)))
+                (setq d (distance pe (cadr t1)) best (car t1)))))
+          (setq grids (cons (list u (if best best "")) grids))))))
+  (setq grids (QSD:Sort grids '(lambda (a2 b2) (< (car a2) (car b2)))))
+  ;; 5. text ten dam gan tim
+  (setq txts (QSD:MbSS "TEXT,MTEXT" "MBLAYTEXT") lab nil nm nil h nil d nil)
+  (foreach e txts
+    (setq t1 (QSD:MbTxt e) s1 (QSD:MbLoc fr (QSD:MbTxtPt e)))
+    (if (and t1 (> (car s1) -500.0) (< (car s1) (+ L 500.0)) (< (abs (cadr s1)) (+ (if b (/ b 2.0) 500.0) 2500.0)))
+      (progn
+        (setq sz (QSD:SizeIn t1))
+        (if (and sz (or (null b) (< (abs (- (car sz) b)) 60.0)) (or (null d) (< (abs (cadr s1)) d)))
+          (setq d (abs (cadr s1)) lab (list t1 sz s1))))))
+  (if lab
+    (setq nm (QSD:MbName (car lab) (cadr lab)) h (cadr (cadr lab)) b (if b b (car (cadr lab)))))
+  ;; ten o text rieng (khong co bxh) sat text kich thuoc
+  (if (and lab (= nm ""))
+    (progn
+      (setq d nil)
+      (foreach e txts
+        (setq t1 (QSD:MbTxt e) s1 (QSD:MbLoc fr (QSD:MbTxtPt e)))
+        (if (and t1 (null (QSD:SizeIn t1)) (wcmatch (strcase t1) "*[A-Z]*") (wcmatch t1 "*#*")
+                 (< (distance s1 (caddr lab)) 1500.0) (or (null d) (< (distance s1 (caddr lab)) d)))
+          (setq d (distance s1 (caddr lab)) nm (QSD:MbName t1 nil))))))
+  ;; kich thuoc dam phu tu text gan dam phu
+  (setq cbs (mapcar '(lambda (cb / best2 dd t2 p2l sz2)
+                       (foreach e txts
+                         (setq t2 (QSD:MbTxt e) p2l (QSD:MbLoc fr (QSD:MbTxtPt e)))
+                         (if (and t2 (setq sz2 (QSD:SizeIn t2)) (< (abs (- (car sz2) (cadr cb))) 60.0)
+                                  (< (abs (- (car p2l) (car cb))) (+ (cadr cb) 1200.0)) (< (abs (cadr p2l)) 8000.0)
+                                  (or (null dd) (< (abs (- (car p2l) (car cb))) dd)))
+                           (setq dd (abs (- (car p2l) (car cb))) best2 (cadr sz2))))
+                       (append cb (list best2)))
+                    cbs))
+  (list (cons "FRAME" fr) (cons "L" L) (cons "B" b) (cons "H" h) (cons "NAME" nm) (cons "LAB" (car lab))
+        (cons "SUPS" sups) (cons "GRIDS" grids) (cons "CBS" cbs)))
+
+;; phia cua net dam phu so voi dam chinh: 1 = v>0, -1 = v<0, 0 = xuyen qua
+(defun QSD:MbSide (sg)
+  (cond ((and (>= (cadr (car sg)) -1.0) (>= (cadr (cadr sg)) -1.0)) 1)
+        ((and (<= (cadr (car sg)) 1.0) (<= (cadr (cadr sg)) 1.0)) -1)
+        (T 0)))
+
+;; gop khoang chong nhau
+(defun QSD:MbMerge (ivs / r)
+  (foreach iv (QSD:Sort ivs '(lambda (a b) (< (car a) (car b))))
+    (if (and r (<= (car iv) (+ (cadr (car r)) 1.0)))
+      (setq r (cons (list (car (car r)) (max (cadr (car r)) (cadr iv))) (cdr r)))
+      (setq r (cons iv r))))
+  (reverse r))
+
+;; ---- ket qua nhan dang -> du lieu o Excel (cot 0 = Goi 1) ----
+;; tra ve (head cells) ; head = (("F2" . v) ...) ; cells = ((row col val) ...)
+(defun QSD:MbToCells (res / L sups grids cbs gl i j su c w lch g gn best cb sz szs offs cols gc dgc dai head cells st en nsup
+                           x0 nb)
+  (setq L (QSD:Get "L" res) sups (QSD:Get "SUPS" res) grids (QSD:Get "GRIDS" res) cbs (QSD:Get "CBS" res))
+  ;; goi bien khong co cot: dam cat ngang gan diem pick nhat (ngoai cot bien, cach diem pick < 1500)
+  ;; -> goi la dam "bxh" ; khong co gi -> console (0) tai diem pick
+  (setq st (car sups) en (QSD:Last sups))
+  (if (or (null st) (> (car st) 200.0))
+    (progn
+      (setq cb nil)
+      (foreach c1 cbs
+        (if (and (< (car c1) (if st (car st) L)) (< (car c1) 1500.0) (or (null cb) (< (car c1) (car cb)))) (setq cb c1)))
+      (if cb (setq cbs (vl-remove cb cbs)))
+      (setq sups (cons (if cb (list (- (car cb) (/ (cadr cb) 2.0)) (+ (car cb) (/ (cadr cb) 2.0)) cb) (list 0.0 0.0)) sups))))
+  (setq en (QSD:Last sups))
+  (if (< (cadr en) (- L 200.0))
+    (progn
+      (setq cb nil)
+      (foreach c1 cbs
+        (if (and (> (car c1) (cadr en)) (> (car c1) (- L 1500.0)) (or (null cb) (> (car c1) (car cb)))) (setq cb c1)))
+      (if cb (setq cbs (vl-remove cb cbs)))
+      (setq sups (append sups (list (if cb (list (- (car cb) (/ (cadr cb) 2.0)) (+ (car cb) (/ (cadr cb) 2.0)) cb) (list L L)))))))
+  (setq nsup (length sups) x0 (car (car sups)) cells nil gl grids i 0)
+  (defun QSD:_c (r c v) (if (and v (/= v "")) (setq cells (cons (list r c v) cells))))
+  (foreach su sups
+    (setq c (* 2 i) w (- (cadr su) (car su)))
+    ;; row 11: be rong goi / goi la dam "bxh"
+    (QSD:_c 11 c (cond ((caddr su) (strcat (QSD:NumStr (QSD:Round (cadr (caddr su)) 5.0))
+                                           (if (nth 4 (caddr su)) (strcat "x" (QSD:NumStr (nth 4 (caddr su)))) "")))
+                       (T (QSD:Round w 1.0))))
+    ;; truc gan tam goi nhat
+    (setq best nil)
+    (foreach g gl
+      (if (and (< (abs (- (car g) (/ (+ (car su) (cadr su)) 2.0))) (+ (/ w 2.0) 800.0))
+               (or (null best) (< (abs (- (car g) (/ (+ (car su) (cadr su)) 2.0))) (abs (- (car best) (/ (+ (car su) (cadr su)) 2.0))))))
+        (setq best g)))
+    (if best
+      (progn (setq gl (vl-remove best gl))
+             (QSD:_c 26 c (cadr best))
+             (setq lch (QSD:Round (- (car best) (/ (+ (car su) (cadr su)) 2.0)) 0.1))
+             (if (> (abs lch) 0.05) (QSD:_c 27 c lch))))
+    ;; dam giao tai cot (nam trong goi, khong phai goi la dam)
+    (if (null (caddr su))
+      (foreach cb cbs
+        (if (and (> (car cb) (car su)) (< (car cb) (cadr su)))
+          (progn (QSD:_c 24 c (strcat (QSD:NumStr (QSD:Round (cadr cb) 5.0)) (if (nth 4 cb) (strcat "x" (QSD:NumStr (nth 4 cb))) "")))
+                 (setq lch (QSD:Round (- (car cb) (/ (+ (car su) (cadr su)) 2.0)) 1.0))
+                 (if (> (abs lch) 0.5) (QSD:_c 25 c lch))))))
+    ;; nhip i: Ltt, dam phu trong nhip, dai mac dinh
+    (if (< i (1- nsup))
+      (progn
+        (setq j (nth (1+ i) sups))
+        (QSD:_c 11 (1+ c) (QSD:Round (- (car j) (cadr su)) 1.0))
+        (QSD:_c 26 (1+ c) (QSD:Cfg "MBDAI"))
+        (setq szs nil offs nil dgc nil)
+        (foreach cb cbs
+          (if (and (> (- (car cb) (/ (cadr cb) 2.0)) (- (cadr su) 1.0)) (< (+ (car cb) (/ (cadr cb) 2.0)) (+ (car j) 1.0)))
+            (setq szs (append szs (list (strcat (QSD:NumStr (QSD:Round (cadr cb) 5.0)) (if (nth 4 cb) (strcat "x" (QSD:NumStr (nth 4 cb))) ""))))
+                  offs (append offs (list (QSD:NumStr (QSD:Round (- (car cb) (/ (+ (car su) (cadr su)) 2.0)) 1.0))))
+                  dgc (append dgc (list (QSD:Cfg "MBDGC"))))))
+        (if szs
+          (progn (QSD:_c 28 c (QSD:Join szs "/"))
+                 (QSD:_c 29 c (if (cdr offs) (QSD:Join offs "/") (QSD:Num (car offs))))
+                 (if (/= (QSD:Cfg "MBDGC") "") (QSD:_c 29 (1+ c) (QSD:Join dgc "/")))))))
+    (setq i (1+ i)))
+  (setq head (list (cons "F2" (QSD:Get "NAME" res))
+                   (cons "F3" (if (QSD:Get "B" res) (QSD:Round (QSD:Get "B" res) 5.0) nil))
+                   (cons "F4" (QSD:Get "H" res))))
+  (list head (reverse cells) sups))
+
+;; so cot Excel -> chu (1 = A)
+(defun QSD:XlCol (n / s)
+  (setq s "")
+  (while (> n 0) (setq s (strcat (chr (+ 65 (rem (1- n) 26))) s) n (/ (1- n) 26)))
+  s)
+;; ghi 1 o: so -> so ; chuoi co / - ; , -> them ' de Excel khong doi sang ngay thang
+(defun QSD:XlPut (sh addr v / rg)
+  (setq rg (vlax-get-property sh 'Range addr))
+  (vlax-put-property rg 'Value2
+    (cond ((numberp v) v)
+          ((wcmatch v "*/*,*-*,*;*,*`,*") (strcat "'" v))
+          (T v)))
+  (vlax-release-object rg))
+
+;; ghi vao Excel dang mo: copy sheet MAU -> sheet moi (ten dam) ; khong co MAU -> sheet hien hanh V2
+(defun QSD:MbExcel (data nm / xl wb shs mau sh a1 i s nm2 r)
+  (setq xl (vl-catch-all-apply 'vlax-get-object (list "Excel.Application")))
+  (cond
+    ((or (null xl) (vl-catch-all-error-p xl))
+     (QSD:Err "Khong thay Excel dang chay - mo file QS_DAM_NhapLieu.xlsx truoc."))
+    ((or (vl-catch-all-error-p (setq wb (vl-catch-all-apply 'vlax-get-property (list xl 'ActiveWorkbook)))) (null wb))
+     (QSD:Err "Excel chua mo workbook nao."))
+    (T
+     (setq shs (vlax-get-property wb 'Worksheets))
+     (setq mau (vl-catch-all-apply 'vlax-get-property (list shs 'Item "MAU")))
+     (if (and mau (not (vl-catch-all-error-p mau)))
+       (progn
+         (vl-catch-all-apply 'vlax-put-property (list mau 'Visible -1))
+         (vlax-invoke-method mau 'Copy mau)                  ; ban sao dat truoc MAU va thanh sheet hien hanh
+         (setq sh (vlax-get-property wb 'ActiveSheet))
+         (setq nm2 (substr (vl-string-translate "[]:*?/\\" "_______" (if (and nm (/= nm "")) nm "DAM")) 1 28) i 1 r T)
+         (setq s nm2)
+         (while (and r (vl-catch-all-error-p (vl-catch-all-apply 'vlax-put-property (list sh 'Name s))))
+           (setq i (1+ i) s (strcat nm2 "_" (itoa i)))
+           (if (> i 50) (setq r nil))))
+       (setq sh (vlax-get-property wb 'ActiveSheet)))
+     (setq a1 (vl-catch-all-apply 'vlax-get-property (list (vlax-get-property sh 'Range "A1") 'Value2)) r nil)
+     (if (not (wcmatch (strcase (QSD:VarToStr a1)) "QS_DAM_V2*"))
+       (QSD:Err "Sheet dich khong phai mau QS_DAM_V2 (o A1). Dung file QS_DAM_NhapLieu.xlsx co sheet MAU.")
+       (progn
+         ;; xoa so lieu cu vung se ghi
+         (foreach rw '(11 24 25 26 27 28 29)
+           (vl-catch-all-apply 'vlax-invoke-method
+             (list (vlax-get-property sh 'Range (strcat "C" (itoa rw) ":AG" (itoa rw))) 'ClearContents)))
+         (foreach p (car data) (if (cdr p) (QSD:XlPut sh (car p) (cdr p))))
+         (foreach c (cadr data)
+           (if (< (cadr c) 31) (QSD:XlPut sh (strcat (QSD:XlCol (+ 3 (cadr c))) (itoa (car c))) (caddr c))))
+         (vl-catch-all-apply 'vlax-invoke-method (list sh 'Activate))
+         (vl-catch-all-apply 'vlax-put-property (list xl 'Visible -1))
+         (QSD:Msg (strcat ">> Da ghi sheet Excel: " (vlax-get-property sh 'Name)))
+         (setq r T)))
+     (vl-catch-all-apply 'vlax-release-object (list shs))
+     (vl-catch-all-apply 'vlax-release-object (list wb))
+     (vl-catch-all-apply 'vlax-release-object (list xl))
+     r)))
+
+;; ve tam (grdraw) ket qua nhan dang de kiem tra: goi vang, truc xanh, dam phu do
+(defun QSD:MbPreview (res sups / fr u)
+  (setq fr (QSD:Get "FRAME" res))
+  (defun QSD:_gl (u1 v1 u2 v2 col)
+    (grdraw (trans (append (QSD:MbWcs fr u1 v1) '(0.0)) 0 1) (trans (append (QSD:MbWcs fr u2 v2) '(0.0)) 0 1) col))
+  (QSD:_gl 0.0 0.0 (QSD:Get "L" res) 0.0 7)
+  (foreach su sups (QSD:_gl (car su) -1500.0 (car su) 1500.0 2) (QSD:_gl (cadr su) -1500.0 (cadr su) 1500.0 2))
+  (foreach g (QSD:Get "GRIDS" res) (QSD:_gl (car g) -3000.0 (car g) 3000.0 3))
+  (foreach cb (QSD:Get "CBS" res) (QSD:_gl (car cb) -2000.0 (car cb) 2000.0 1))
+  (princ))
+
+;; pick mau -> ghi layer vao cai dat
+(defun QSD:MbMau ( / e cfg)
+  (setq cfg *QSD-CFG*)
+  (foreach it '(("MBLAYTRUC" "1 duong TRUC") ("MBLAYTENTRUC" "1 TEN TRUC (text / block)") ("MBLAYCOT" "1 COT (hoac vach)")
+                ("MBLAYDAM" "1 NET DAM") ("MBLAYTEXT" "1 TEXT TEN DAM"))
+    (if (setq e (QSD:PickEnt (strcat "\nChon " (cadr it) " <Enter = giu " (QSD:Cfg (car it)) ">: ")))
+      (setq cfg (QSD:Put (car it) (cdr (assoc 8 (entget e))) cfg))))
+  (QSD:CfgSave cfg)
+  (QSD:Msg ">> Da luu layer nhan dang MBKC (QS_DAMSET trang 6 de sua / them mau layer)."))
+
+(defun c:QS_DAMMB ( / *error* p1 p2 res data sups nm s k i su g)
+  (defun *error* (msg)
+    (if (and msg (not (wcmatch (strcase msg) "*CANCEL*,*QUIT*,*EXIT*,*BREAK*"))) (QSD:Err msg))
+    (redraw) (princ))
+  (QSD:CfgLoad)
+  (setq p1 T)
+  (while (= p1 T)
+    (initget "Mau")
+    (setq p1 (getpoint "\nDiem DAU dam tren MBKC (tren tim dam, ngoai goi dau) [Mau layer]: "))
+    (if (= p1 "Mau") (progn (QSD:MbMau) (setq p1 T))))
+  (if (and p1 (setq p2 (getpoint p1 "\nDiem CUOI dam (tren tim dam, ngoai goi cuoi): ")))
+    (progn
+      (setq res (QSD:MbScan (QSD:P2d (trans p1 1 0)) (QSD:P2d (trans p2 1 0))))
+      (setq data (QSD:MbToCells res) sups (caddr data))
+      (QSD:MbPreview res sups)
+      ;; ten / kich thuoc: hoi lai neu khong doc duoc
+      (setq nm (QSD:Get "NAME" res))
+      (if (or (null nm) (= nm ""))
+        (progn (setq s (getstring T "\nKhong doc duoc ten dam - nhap ten dam: ")) (setq nm (if (/= s "") s "DAM"))))
+      (if (null (QSD:Get "B" res))
+        (progn (initget 6) (setq res (QSD:Put "B" (getreal "\nKhong do duoc b dam - nhap b (mm): ") res))))
+      (if (null (QSD:Get "H" res))
+        (progn (initget 6) (setq res (QSD:Put "H" (getreal "\nKhong doc duoc h dam - nhap h (mm): ") res))))
+      (setq res (QSD:Put "NAME" nm res) data (QSD:MbToCells res))
+      ;; bao cao
+      (QSD:Msg (strcat "   Dam " nm "  b x h = " (QSD:NumStr (cdr (assoc "F3" (car data)))) " x "
+                       (QSD:NumStr (QSD:Get "H" res)) "  | " (itoa (max 0 (1- (length sups)))) " nhip"
+                       "  | L pick = " (QSD:NumStr (QSD:Round (QSD:Get "L" res) 1.0))
+                       (if (QSD:Get "LAB" res) (strcat "  | text: " (QSD:Get "LAB" res)) "")))
+      (setq i 0)
+      (foreach su sups
+        (setq g (vl-remove-if-not '(lambda (c) (and (= (car c) 26) (= (cadr c) (* 2 i)))) (cadr data)))
+        (QSD:Msg (strcat "   Goi " (itoa (1+ i)) ": rong " (QSD:NumStr (QSD:Round (- (cadr su) (car su)) 1.0))
+                         (if (caddr su) " (goi la dam)" "") "  truc " (if g (caddr (car g)) "?")))
+        (setq i (1+ i)))
+      (QSD:Msg (strcat "   Truc cat tim: " (itoa (length (QSD:Get "GRIDS" res))) "  | Dam phu / dam giao: " (itoa (length (QSD:Get "CBS" res)))))
+      (QSD:Msg "   (Net ve tam: vang = mep goi, xanh = truc, do = dam phu. REGEN de xoa.)")
+      (initget "Co Khong")
+      (if (/= (getkword "\nGhi vao Excel (copy sheet MAU) [Co/Khong] <Co>: ") "Khong")
+        (QSD:MbExcel data nm))
+      (redraw)))
+  (princ))
+
+;;;-----------------------------------------------------------------------------
 ;;; 19. CAI DAT: QS_DAMSET  (DCL tu sinh, 4 trang giong bang cai dat DCE)
 ;;;     loi DCL -> sua tren dong lenh (QS_DAMSETCMD)
 ;;;     QS_DAMNOI : bang chieu dai noi theo phi (trong / ngoai vung, T/B/G/Random)
@@ -3334,7 +3805,8 @@
         (list "2. DAI / MOC / MAT CAT NGANG" (QSD:KeyRange "LMOCNGOAI" "ROUNDUPSL"))
         (list "3. NEO / BE KE / THEP CHO" (QSD:KeyRange "HOOKD" "KNHIP"))
         (list "4. CAT THEP SHOP" (vl-remove "THUVIEN" (QSD:KeyRange "LSTOCK" "CSV")))
-        (list "5. BO CUC SHOP" (QSD:KeyRange "SHOPTRENVT" "CHOSHOP"))))
+        (list "5. BO CUC SHOP" (QSD:KeyRange "SHOPTRENVT" "CHOSHOP"))
+        (list "6. MAT BANG KC (QS_DAMMB)" (QSD:KeyRange "MBLAYTRUC" "MBDGC"))))
 
 ;; nhan hien thi cho gia tri chon (kieu L)
 (setq *QSD-LLAB*
@@ -3362,7 +3834,7 @@
     ((= kind "B") (strcat "      : toggle { key = \"" k "\"; label = \"" lab "\"; }"))
     ((member kind '("M" "L"))
      (strcat "      : row { fixed_height = true; : text { label = \"" lab "\"; width = 44; } : popup_list { key = \"" k "\"; width = 26; } }"))
-    ((and (= kind "S") (wcmatch k "NEO?"))
+    ((and (= kind "S") (wcmatch k "NEO?,MBLAY*"))
      (strcat "      : text { label = \"" lab "\"; } : edit_box { key = \"" k "\"; edit_width = 70; edit_limit = 400; }"))
     (T (strcat "      : row { fixed_height = true; : text { label = \"" lab "\"; width = 44; } : edit_box { key = \"" k "\"; edit_width = 14; edit_limit = 200; } }"))))
 
@@ -3379,6 +3851,7 @@
           "    : button { key = \"P3\"; label = \"3. Neo / Cho\"; }"
           "    : button { key = \"P4\"; label = \"4. Shop\"; }"
           "    : button { key = \"P5\"; label = \"5. Bo cuc\"; }"
+          "    : button { key = \"P6\"; label = \"6. MBKC\"; }"
           "    : button { key = \"NOI\"; label = \"Bang L noi...\"; }"
           "  }"
           "  : row {"
@@ -3566,7 +4039,7 @@
             (QSD:DlgFill *QSD-DLGKEYS* *QSD-DLGCFG*)
             (action_tile "P1" "(QSD:DlgGo 11)") (action_tile "P2" "(QSD:DlgGo 12)")
             (action_tile "P3" "(QSD:DlgGo 13)") (action_tile "P4" "(QSD:DlgGo 14)")
-            (action_tile "P5" "(QSD:DlgGo 15)")
+            (action_tile "P5" "(QSD:DlgGo 15)") (action_tile "P6" "(QSD:DlgGo 16)")
             (action_tile "NOI" "(QSD:DlgGo 20)")
             (action_tile "LIBADD" "(QSD:DlgLibAdd)")
             (action_tile "LIBDEL" "(QSD:DlgLibDel)")
@@ -3578,7 +4051,7 @@
               ((= r 1) (QSD:CfgSave *QSD-DLGCFG*) (QSD:Msg ">> Da luu cai dat.") (setq run nil))
               ((= r 0) (QSD:Msg "Huy - khong thay doi.") (setq run nil))
               ((= r 20) (QSD:NoiDialog id))
-              ((and (> r 10) (< r 16)) (setq page (- r 10))))
+              ((and (> r 10) (< r 17)) (setq page (- r 10))))
             (if run (if (not (new_dialog (strcat "qsdamp" (itoa page)) id)) (setq run nil))))
           (unload_dialog id)
           (vl-file-delete fn)
@@ -3590,8 +4063,8 @@
 (defun QSD:SetCmdline ( / cfg i k v n d kind e pg ks go)
   (setq cfg *QSD-CFG* go T)
   (while go
-    (initget "1 2 3 4 5 Noi Luu")
-    (setq pg (getkword "\nQS_DAM cai dat - chon trang [1 Hien thi/2 Dai-Moc/3 Neo-Cho/4 Shop/5 Bo cuc shop/Noi (bang L noi)/Luu] <Luu>: "))
+    (initget "1 2 3 4 5 6 Noi Luu")
+    (setq pg (getkword "\nQS_DAM cai dat - chon trang [1 Hien thi/2 Dai-Moc/3 Neo-Cho/4 Shop/5 Bo cuc shop/6 MBKC/Noi (bang L noi)/Luu] <Luu>: "))
     (cond
       ((or (null pg) (= pg "Luu")) (setq go nil))
       (T
@@ -3656,7 +4129,10 @@
       "             -> vung noi, moi noi bat buoc (cat thep o nhip), cat theo L cay + thu vien L,"
       "                so le, noi chong theo bang mm / he so x d (trong / ngoai vung)"
       "             -> shop tren / duoi, bang thong ke doan cat + THONG KE DAI (moc theo cai dat), CSV."
-      "QS_DAMSET  : cai dat 5 trang (Hien thi / Dai-Moc / Neo-Cho / Shop / Bo cuc shop) + nut Bang L noi."
+      "QS_DAMMB   : tren MBKC pick diem DAU / CUOI tim dam -> tu nhan dang truc, goi (cot / vach / dam), dam phu,"
+      "             ten + b x h -> copy sheet MAU cua QS_DAM_NhapLieu.xlsx dang mo va ghi so lieu. [Mau] = pick layer."
+      "             Layer nhan dang / don vi ban ve: QS_DAMSET trang 6. Kiem tra lai so lieu tren Excel truoc khi ve."
+      "QS_DAMSET  : cai dat 6 trang (Hien thi / Dai-Moc / Neo-Cho / Shop / Bo cuc shop / MBKC) + nut Bang L noi."
       "Bo cuc shop (trang 5): mac dinh giong DCE - shop TREN tren MC doc; duoi MC doc: dai THEP GIA sat tren"
       "  dai THEP DUOI; shop THEP DAI ben phai khung shop TREN (cach 810, lui 350, moi hinh cach 1000)."
       "Dai trong: 1 nhanh moi thanh giua lop 1 tren (kieu DCE) hoac dai kin om thanh 2 / n-1 (trang 2)."
@@ -3675,5 +4151,5 @@
     (princ (strcat "\n" s)))
   (princ))
 
-(princ (strcat "\nQS_DAM v" *QSD-VER* " da nap:  QS_VEDAM | QS_SHOPDAM | QS_DAMSET | QS_DAMNOI | QS_DAMHELP"))
+(princ (strcat "\nQS_DAM v" *QSD-VER* " da nap:  QS_DAMMB | QS_VEDAM | QS_SHOPDAM | QS_DAMSET | QS_DAMNOI | QS_DAMHELP"))
 (princ)
