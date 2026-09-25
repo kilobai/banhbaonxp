@@ -81,6 +81,7 @@
 (setq *QSD-APP* "QS_DAM")
 (setq *QSD-CFGKEY* "QS_DAM_CFG_V1")
 
+(setq *QSD-NAP* "muc 0")   ; theo doi nap file: loi khi nap -> go !*QSD-NAP* de biet muc loi
 ;;;-----------------------------------------------------------------------------
 ;;; 0. CAU HINH MAC DINH  (key  gia-tri  mo-ta  kieu)
 ;;;    kieu: N = so > 0, Z = so >= 0, K = he so 0..1, S = chuoi, B = 0/1, M = che do vung noi,
@@ -208,7 +209,7 @@
   (list "LSTOCK"  "11700" "Chieu dai 1 cay thep (mm)"                      "N")
   (list "THUVIEN" "10400,9750,9360,9100,8775,7020,6500,5200,4680,2600" "Thu vien L uu tien (mm)" "S")
   (list "UUTIENTV" "1"    "Uu tien L trong thu vien"                       "B")
-  (list "LMACDINH" "0"    "Chieu dai thanh mac dinh uu tien cat / phoi (0 = khong)" "Z")
+  (list "LMACDINH" "0"    "Chieu dai thanh mac dinh = dai toi da moi thanh cat (0 = theo L cay)" "Z")
   (list "LECHNOI" "0"     "Cho phep moi noi lech ra ngoai vung noi (mm) de dung L mac dinh" "Z")
   (list "TOPMODE" "NHIP"  "Vung noi thep TREN"                             "M")
   (list "TOPK"    "0.25"  "Thep TREN: cach mep k x L"                      "K")
@@ -275,6 +276,7 @@
 )
 (setq *QSD-MODES* '(("NHIP" . "Nhip (giua nhip)") ("GOI" . "Goi (quanh goi)") ("TATCA" . "Tat ca (khong han che)")))
 
+(setq *QSD-NAP* "muc 1")   ; theo doi nap file: loi khi nap -> go !*QSD-NAP* de biet muc loi
 ;;;-----------------------------------------------------------------------------
 ;;; 1. HAM TIEN ICH
 ;;;-----------------------------------------------------------------------------
@@ -354,6 +356,7 @@
 (defun QSD:SafeName (s)
   (vl-string-translate "\\/:*?\"<>|;,. " "_____________" (QSD:Trim s)))
 
+(setq *QSD-NAP* "muc 2")   ; theo doi nap file: loi khi nap -> go !*QSD-NAP* de biet muc loi
 ;;;-----------------------------------------------------------------------------
 ;;; 2. CAU HINH: luu trong ban ve (NOD / XRECORD) + mac dinh may (getenv)
 ;;;-----------------------------------------------------------------------------
@@ -484,6 +487,7 @@
 ;; chieu dai doan moc thang (mm) = max(k.d , L moc min)
 (defun QSD:HookLen (key d) (max (* (QSD:KD (QSD:Cfg key) d) d) (QSD:CfgN "LMOCMIN")))
 
+(setq *QSD-NAP* "muc 3")   ; theo doi nap file: loi khi nap -> go !*QSD-NAP* de biet muc loi
 ;;;-----------------------------------------------------------------------------
 ;;; 3. DOC KY HIEU THEP
 ;;;-----------------------------------------------------------------------------
@@ -614,6 +618,7 @@
 (defun QSD:BarTxt (n d) (strcat (if (QSD:CfgB "GHISL") (itoa n) "") "%%c" (itoa d)))
 (defun QSD:BarTxtN (n d) (strcat (itoa n) "%%c" (itoa d)))
 
+(setq *QSD-NAP* "muc 4")   ; theo doi nap file: loi khi nap -> go !*QSD-NAP* de biet muc loi
 ;;;-----------------------------------------------------------------------------
 ;;; 4. SO LIEU DAM THO (giong sheet DCE_Pro_Beam)
 ;;;    raw = (("HEAD" . alist) ("GRID" . 20 dong x N cot))
@@ -686,6 +691,7 @@
       (list (cons "HEAD" (reverse head)) (cons "GRID" grid)))
     nil))
 
+(setq *QSD-NAP* "muc 5")   ; theo doi nap file: loi khi nap -> go !*QSD-NAP* de biet muc loi
 ;;;-----------------------------------------------------------------------------
 ;;; 5. DOC EXCEL (sheet DCE_Pro_Beam trong workbook dang mo)
 ;;;-----------------------------------------------------------------------------
@@ -890,6 +896,7 @@
          raw))))
   )
 
+(setq *QSD-NAP* "muc 6")   ; theo doi nap file: loi khi nap -> go !*QSD-NAP* de biet muc loi
 ;;;-----------------------------------------------------------------------------
 ;;; 6. MO HINH DAM (tinh toan thuan, toa do TUONG DOI:
 ;;;    x = 0 tai mep ngoai goi 1, y = 0 tai mat tren dam, y am di xuong)
@@ -1396,6 +1403,7 @@
   (foreach sp (QSD:Get "SPANS" beam) (if (and (>= x (nth 1 sp)) (<= x (nth 2 sp))) (setq r (nth 4 sp))))
   r)
 
+(setq *QSD-NAP* "muc 7")   ; theo doi nap file: loi khi nap -> go !*QSD-NAP* de biet muc loi
 ;;;-----------------------------------------------------------------------------
 ;;; 7. HAM VE CO BAN (entmake - chay duoc tren AutoCAD va ZWCAD)
 ;;;    Quy cach trinh bay theo dung ban ve DCE mau (dam.dwg):
@@ -1695,6 +1703,7 @@
         ((> v 0) (strcat "+" (rtos v 2 3)))
         (T (rtos v 2 3))))
 
+(setq *QSD-NAP* "muc 8")   ; theo doi nap file: loi khi nap -> go !*QSD-NAP* de biet muc loi
 ;;;-----------------------------------------------------------------------------
 ;;; 8. THANH THEP DANG DCE: vat goc 30 + gach dau thanh 70 (30 do)
 ;;;    din = -1: gach huong xuong (thep tren), +1: huong len (thep duoi)
@@ -1903,6 +1912,7 @@
   (QSD:Insert blk (car (QSD:Last pts)) (cadr (QSD:Last pts)) sc "QS_Block"
               (list (cons "SH" sh) (cons "DKVAKC" txt) (cons "DKVAKC2" (if txt2 txt2 "")))))
 
+(setq *QSD-NAP* "muc 9")   ; theo doi nap file: loi khi nap -> go !*QSD-NAP* de biet muc loi
 ;;;-----------------------------------------------------------------------------
 ;;; 9. VE MAT CAT DOC (giong DCE)
 ;;;-----------------------------------------------------------------------------
@@ -2187,6 +2197,7 @@
                   (cons 1040 (QSD:Get "H" beam)) (cons 1040 (QSD:Get "L" beam)))
             (mapcar '(lambda (c) (cons 1000 c)) chunks))))
 
+(setq *QSD-NAP* "muc 10")   ; theo doi nap file: loi khi nap -> go !*QSD-NAP* de biet muc loi
 ;;;-----------------------------------------------------------------------------
 ;;; 10. MAT CAT NGANG (ty le 1:1, ghi chu theo ty le TLNGANG - giong DCE)
 ;;;-----------------------------------------------------------------------------
@@ -2588,6 +2599,7 @@
       (setq x (+ x (QSD:DrawSection beam (car sc) (cadr sc) x 408.0)))))
   (princ))
 
+(setq *QSD-NAP* "muc 10b")   ; theo doi nap file: loi khi nap -> go !*QSD-NAP* de biet muc loi
 ;;;-----------------------------------------------------------------------------
 ;;; 10. TIM SO LIEU DAM TRONG BAN VE
 ;;;-----------------------------------------------------------------------------
@@ -2666,6 +2678,7 @@
 
 (defun QSD:HasFatal (beam / r) (foreach w (QSD:Get "WARN" beam) (if (wcmatch w "LOI*") (setq r T))) r)
 
+(setq *QSD-NAP* "muc 11")   ; theo doi nap file: loi khi nap -> go !*QSD-NAP* de biet muc loi
 ;;;-----------------------------------------------------------------------------
 ;;; 11. LENH QS_VEDAM
 ;;;-----------------------------------------------------------------------------
@@ -2717,6 +2730,7 @@
               (QSD:Msg (strcat ">> Da ve dam " (QSD:Get "NAME" beam) ". Dung QS_SHOPDAM de cat thep."))))))))
   (princ))
 
+(setq *QSD-NAP* "muc 12")   ; theo doi nap file: loi khi nap -> go !*QSD-NAP* de biet muc loi
 ;;;-----------------------------------------------------------------------------
 ;;; 12. KHOANG (interval) - tinh toan thuan
 ;;;-----------------------------------------------------------------------------
@@ -2748,6 +2762,7 @@
   (if (< x hi) (setq r (cons (list x hi) r)))
   (reverse r))
 
+(setq *QSD-NAP* "muc 13")   ; theo doi nap file: loi khi nap -> go !*QSD-NAP* de biet muc loi
 ;;;-----------------------------------------------------------------------------
 ;;; 13. VUNG DUOC PHEP NOI (toa do x tuong doi dam)
 ;;;     mode NHIP: [trai + kL , phai - kL] moi nhip
@@ -2785,6 +2800,7 @@
     (foreach su sups (if (> (nth 3 su) 0) (setq ivs (QSD:IvSub ivs (nth 1 su) (nth 2 su))))))
   ivs)
 
+(setq *QSD-NAP* "muc 14")   ; theo doi nap file: loi khi nap -> go !*QSD-NAP* de biet muc loi
 ;;;-----------------------------------------------------------------------------
 ;;; 14. THUAT TOAN CAT 1 THANH (toa do t = chieu dai trai tu dau thanh)
 ;;;   Lb  : chieu dai trai thanh     zt : vung noi cho phep (theo t)
@@ -2806,9 +2822,14 @@
           (if (>= e (- lo 1e-6)) (setq best e))))))
   best)
 
+;; chieu dai toi da 1 doan cat: L thanh mac dinh (QS_DAMSET trang 4) neu co, khong thi L cay thep
+(defun QSD:LMax ( / m)
+  (setq m (QSD:CfgN "LMACDINH"))
+  (if (> m 0) (min m (QSD:CfgN "LSTOCK")) (QSD:CfgN "LSTOCK")))
+
 (defun QSD:CutPlan (Lb zt Lp Lp2 fb / Ls r lmin lib s es laps flag lo hi ivs e guard lu lm0 tol ivt)
   ;; Lp = chieu dai noi TRONG vung cho phep, Lp2 = NGOAI vung (khi buoc phai noi ngoai vung)
-  (setq Ls (QSD:CfgN "LSTOCK") r (QSD:CfgN "RNDCAT") lmin (QSD:CfgN "LMIN"))
+  (setq Ls (QSD:LMax) r (QSD:CfgN "RNDCAT") lmin (QSD:CfgN "LMIN"))
   ;; uu tien: ca cay (Ls) -> thu vien L (lon -> nho)
   (setq lib (cons Ls (if (and (QSD:CfgB "UUTIENTV")
                                (not (and (QSD:CfgB "CATCHAN")
@@ -2857,6 +2878,7 @@
   (foreach e es (setq r (cons (list s e) r) s (- e (car laps)) laps (cdr laps)))
   (reverse (cons (list s Lb) r)))
 
+(setq *QSD-NAP* "muc 15")   ; theo doi nap file: loi khi nap -> go !*QSD-NAP* de biet muc loi
 ;;;-----------------------------------------------------------------------------
 ;;; 15. NHAN DANG THANH THEP O MAT CAT DOC
 ;;;   rec = (ent mark tp d n nck x1 x2 legL legR y complex name)
@@ -2939,6 +2961,7 @@
     (setq i (1+ i)))
   (if mn (list mn mx) nil))
 
+(setq *QSD-NAP* "muc 16")   ; theo doi nap file: loi khi nap -> go !*QSD-NAP* de biet muc loi
 ;;;-----------------------------------------------------------------------------
 ;;; 16. CAT 1 NHOM THANH (so le 2 nhom A / B)
 ;;;   tra ve list nhom: (qty pieces es flag) ; pieces theo t
@@ -3003,8 +3026,8 @@
   (foreach x (QSD:ForcedX beam tp)
     (if (and (> x (+ x1 (QSD:CfgN "LMIN") (/ Lp 2.0))) (< x (- x2 (QSD:CfgN "LMIN") (/ Lp 2.0))))
       (setq fx (append fx (list (+ lL (- x x1)))))))
-  (if (or (and (<= Lb (QSD:CfgN "LSTOCK")) (null fx)) (nth 11 rec))
-    (list (list n (list (list 0.0 Lb)) nil (if (and (nth 11 rec) (> Lb (QSD:CfgN "LSTOCK"))) "PHUCTAP" nil)))
+  (if (or (and (<= Lb (QSD:LMax)) (null fx)) (nth 11 rec))
+    (list (list n (list (list 0.0 Lb)) nil (if (and (nth 11 rec) (> Lb (QSD:LMax))) "PHUCTAP" nil)))
     (progn
       (setq zx (QSD:Zones beam tp))
       (setq zt (mapcar '(lambda (z) (list (+ lL (- (car z) x1)) (+ lL (- (cadr z) x1))))
@@ -3028,11 +3051,11 @@
   (setq r (QSD:CfgN "RNDCAT"))
   (defun QSD:_g1 (q c / e fl)
     (setq e (QSD:RoundDn (+ c (/ Lp 2.0)) r))
-    (setq fl (if (> (max e (- Lb (- e Lp))) (+ (QSD:CfgN "LSTOCK") 1e-6)) "DAI" nil))
+    (setq fl (if (> (max e (- Lb (- e Lp))) (+ (QSD:LMax) 1e-6)) "DAI" nil))
     (list q (QSD:Pieces Lb (list e) (list Lp)) (list e) fl))
   (cond
     ((or (= (QSD:Cfg "GIACAT") "1THANH") (< Lb (+ Lp gap (* 2.0 (QSD:CfgN "LMIN")))))
-     (list (list n (list (list 0.0 Lb)) nil (if (> Lb (+ (QSD:CfgN "LSTOCK") 1e-6)) "DAI" nil))))
+     (list (list n (list (list 0.0 Lb)) nil (if (> Lb (+ (QSD:LMax) 1e-6)) "DAI" nil))))
     ((> n 1)
      (setq nA (QSD:Ceil (/ n 2.0)) nB (- n nA) c (/ (+ Lp gap) 2.0))
      (list (QSD:_g1 nA (- (/ Lb 2.0) c)) (QSD:_g1 nB (+ (/ Lb 2.0) c))))
@@ -3068,6 +3091,7 @@
   (list (if (< (nth 8 rec) 0) (- a) a) (max 0.0 b) (if (< (nth 9 rec) 0) (- c) c)
         (+ (nth 6 rec) (max 0.0 (- t0 lL)))))          ; x bat dau doan ngang
 
+(setq *QSD-NAP* "muc 17")   ; theo doi nap file: loi khi nap -> go !*QSD-NAP* de biet muc loi
 ;;;-----------------------------------------------------------------------------
 ;;; 17. VE SHOP
 ;;;-----------------------------------------------------------------------------
@@ -3462,6 +3486,7 @@
                      (list "C" w 0.0 dC 1.0) (1+ (QSD:CntDiv (- (nth 5 bb) (nth 4 bb)) (cadr cdo))))))))
   (mapcar '(lambda (e) (list (nth 1 e) (fix (nth 2 e)) (nth 3 e) (nth 4 e) (nth 5 e) nck (nth 6 e))) r))
 
+(setq *QSD-NAP* "muc 17b")   ; theo doi nap file: loi khi nap -> go !*QSD-NAP* de biet muc loi
 ;;;-----------------------------------------------------------------------------
 ;;; 17b. SHOP THEP DAI (giong ban ve DCE dam.dwg): moi so hieu dai / thep C ve 1 hinh ty le 1:1
 ;;;      theo kich thuoc NGOAI, dim tung doan (an duong dim / duong giong, lam tron 5),
@@ -3547,7 +3572,7 @@
 
 ;; bang thong ke + CSV
 ;; extra = cac dong them (vd coupler): (mark d "COUPLER" 0 sl nck) - khong tinh KL / so cay
-(defun QSD:DrawTable (beam items y0 extra / th nck rows cw gc ds dct x y r hdr ds tot wt f fn Ls lens cnt vals row i sep line)
+(defun QSD:DrawTable (beam items y0 extra / th nck rows cw gc ds dct x y r hdr tot wt f fn Ls lens cnt vals row i sep line)
   (setq th (QSD:TH) nck (QSD:Get "NCK" beam) Ls (QSD:CfgN "LSTOCK"))
   (setq rows nil)
   (foreach it items
@@ -3621,6 +3646,7 @@
         (QSD:Err "Khong ghi duoc file CSV."))))
   y)
 
+(setq *QSD-NAP* "muc 18")   ; theo doi nap file: loi khi nap -> go !*QSD-NAP* de biet muc loi
 ;;;-----------------------------------------------------------------------------
 ;;; 18. LENH QS_SHOPDAM
 ;;;-----------------------------------------------------------------------------
@@ -3761,6 +3787,7 @@
                   (setvar "CMDECHO" oldEcho) (setvar "OSMODE" oldOs)
                   (QSD:Msg (strcat ">> Xong: " (itoa ncut) " nhom thanh duoc cat. Kiem tra vung gach cheo = vung KHONG duoc noi."))))))))))
   (princ))
+(setq *QSD-NAP* "muc 20")   ; theo doi nap file: loi khi nap -> go !*QSD-NAP* de biet muc loi
 ;;;-----------------------------------------------------------------------------
 ;;; 20. LENH QS_DAMMB: NHAN DANG DAM TREN MAT BANG KET CAU (MBKC) -> GHI SHEET EXCEL QS_DAM_V2
 ;;;   Hop thoai (bang): 1. pick cac diem tren tim dam (nhieu nhip, Enter/Space = xong) -> click dam giao / vi tri
@@ -4533,6 +4560,7 @@
   (redraw)
   (princ))
 
+(setq *QSD-NAP* "muc 21")   ; theo doi nap file: loi khi nap -> go !*QSD-NAP* de biet muc loi
 ;;;-----------------------------------------------------------------------------
 ;;; 21. LENH QS_DAMXL: QUET CHON DAM DA VE (ten dam / thanh thep QS_DAM, block DCE) -> GHI LAI SO LIEU VAO EXCEL
 ;;;     (sheet copy tu MAU cua QS_DAM_NhapLieu.xlsx V2.1, ten sheet = ten dam) de chinh sua roi ve lai.
@@ -4648,6 +4676,7 @@
      (vl-catch-all-apply 'vlax-release-object (list xl))))
   (princ))
 
+(setq *QSD-NAP* "muc 19")   ; theo doi nap file: loi khi nap -> go !*QSD-NAP* de biet muc loi
 ;;;-----------------------------------------------------------------------------
 ;;; 19. CAI DAT: QS_DAMSET  (DCL tu sinh, 4 trang giong bang cai dat DCE)
 ;;;     loi DCL -> sua tren dong lenh (QS_DAMSETCMD)
@@ -5087,5 +5116,6 @@
     (princ (strcat "\n" s)))
   (princ))
 
+(setq *QSD-NAP* "OK")
 (princ (strcat "\nQS_DAM v" *QSD-VER* " da nap:  QS_DAMMB | QS_VEDAM | QS_DAMXL | QS_SHOPDAM | QS_DAMSET | QS_DAMNOI | QS_DAMHELP"))
 (princ)
