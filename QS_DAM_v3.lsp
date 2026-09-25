@@ -233,6 +233,7 @@
   ;; ===== TRANG 6: MAT BANG KET CAU (lenh QS_DAMMB) - mau layer dang wcmatch, cach nhau dau phay =====
   (list "MBLAYTRUC" "*TRUC*,*AXIS*,*GRID*" "MBKC: layer duong truc"              "S")
   (list "MBLAYTENTRUC" "*TRUC*,*AXIS*,*GRID*" "MBKC: layer ten truc (text / block)" "S")
+  (list "MBBLKTRUC" ""    "MBKC: ten block truc (vd TRUC*,GRID* ; trong = khong)" "S")
   (list "MBLAYCOT" "*COT*,*COL*,*VACH*,*WALL*,*LOI*" "MBKC: layer cot / vach (goi)" "S")
   (list "MBLAYDAM" "*DAM*,*BEAM*" "MBKC: layer net dam"                       "S")
   (list "MBLAYTEXT" "*"   "MBKC: layer text ten dam (vd B1 (220x500))"      "S")
@@ -3415,6 +3416,45 @@
       ((member c '("{" "}")) (setq i (1+ i)))
       (T (setq r (strcat r c) i (1+ i)))))
   (QSD:Trim r))
+;; ten block (block dong -> ten goc)
+(defun QSD:MbBlkName (ent / o n)
+  (setq o (vlax-ename->vla-object ent) n (vl-catch-all-apply 'vla-get-EffectiveName (list o)))
+  (if (vl-catch-all-error-p n) (cdr (assoc 2 (entget ent))) n))
+;; text hang (TEXT / MTEXT) trong dinh nghia block
+(defun QSD:MbBlkDefTxt (bn / e s ed)
+  (setq e (tblobjname "BLOCK" bn) s nil)
+  (if e (setq e (entnext e)))
+  (while (and e (null s))
+    (setq ed (entget e))
+    (if (member (cdr (assoc 0 ed)) '("TEXT" "MTEXT")) (setq s (QSD:MbTxt e)))
+    (if (= (cdr (assoc 0 ed)) "ENDBLK") (setq e nil) (setq e (entnext e))))
+  (if (and s (/= s "")) s nil))
+;; block truc (MBBLKTRUC, moi layer) -> ((ten diem) ...) ; ten = thuoc tinh / text trong block / text sat bong truc
+(defun QSD:MbGridBlks ( / pat ss i e r nm pt tx d best ed)
+  (setq pat (QSD:MbPat "MBBLKTRUC") r nil tx nil)
+  (if (/= pat "")
+    (progn
+      (setq ss (ssget "_X" (list '(0 . "INSERT") (cons 2 (strcat pat ",`*U*")) '(410 . "Model"))) i 0)
+      (if ss
+        (repeat (sslength ss)
+          (setq e (ssname ss i) i (1+ i))
+          (if (wcmatch (strcase (QSD:MbBlkName e)) pat)
+            (progn
+              (setq nm (QSD:MbTxt e) pt (QSD:MbTxtPt e))
+              (if (or (null nm) (= nm "")) (setq nm (QSD:MbBlkDefTxt (cdr (assoc 2 (entget e))))))
+              (if (or (null nm) (= nm ""))
+                (progn
+                  ;; text roi nam trong bong truc (moi layer), cach diem chen < 1/2 ban kinh tim ten truc
+                  (if (null tx) (setq tx (QSD:MbSS "TEXT,MTEXT" "MBLAYTEXT") tx (if tx tx (list nil))))
+                  (setq best nil d nil)
+                  (foreach t1 (vl-remove nil tx)
+                    (setq ed (distance pt (QSD:MbTxtPt t1)))
+                    (if (and (< (* (QSD:CfgN "MBDV") ed) (* 0.5 (QSD:CfgN "MBRTRUC"))) (or (null d) (< ed d)))
+                      (setq d ed best t1)))
+                  (if best (setq nm (QSD:MbTxt best)))))
+              (if (and nm (/= nm "")) (setq r (cons (list nm pt) r)))))))))
+  r)
+
 (defun QSD:MbTxt (ent / ed tp e s)
   (setq ed (entget ent) tp (cdr (assoc 0 ed)))
   (cond
@@ -3532,8 +3572,9 @@
       (setq cand (cdr cand))))
   (setq cbs (reverse cbs))
   ;; 4. truc cat tim dam + ten truc
-  (setq gtx (mapcar '(lambda (e) (list (QSD:MbTxt e) (QSD:MbTxtPt e)))
-                    (QSD:MbSS "TEXT,MTEXT,INSERT" "MBLAYTENTRUC")))
+  (setq gtx (append (mapcar '(lambda (e) (list (QSD:MbTxt e) (QSD:MbTxtPt e)))
+                            (QSD:MbSS "TEXT,MTEXT,INSERT" "MBLAYTENTRUC"))
+                    (QSD:MbGridBlks)))
   (setq gtx (vl-remove-if '(lambda (x) (or (null (car x)) (= (car x) ""))) gtx) grids nil)
   (foreach e (QSD:MbSS "LINE,LWPOLYLINE" "MBLAYTRUC")
     (foreach sg (QSD:MbSegs e)
@@ -3735,14 +3776,23 @@
   (princ))
 
 ;; pick mau -> ghi layer vao cai dat
-(defun QSD:MbMau ( / e cfg)
+;; pick mau -> ghi layer / ten block vao cai dat ; chitruc = T: chi phan truc (block truc, layer truc, layer ten truc)
+(defun QSD:MbMau (chitruc / e cfg ed)
   (setq cfg *QSD-CFG*)
-  (foreach it '(("MBLAYTRUC" "1 duong TRUC") ("MBLAYTENTRUC" "1 TEN TRUC (text / block)") ("MBLAYCOT" "1 COT (hoac vach)")
-                ("MBLAYDAM" "1 NET DAM") ("MBLAYTEXT" "1 TEXT TEN DAM"))
-    (if (setq e (QSD:PickEnt (strcat "\nChon " (cadr it) " <Enter = giu " (QSD:Cfg (car it)) ">: ")))
-      (setq cfg (QSD:Put (car it) (cdr (assoc 8 (entget e))) cfg))))
+  ;; block truc
+  (if (setq e (QSD:PickEnt (strcat "\nChon 1 BLOCK TRUC (bong truc) <Enter = giu \"" (QSD:Cfg "MBBLKTRUC") "\">: ")))
+    (if (= (cdr (assoc 0 (entget e))) "INSERT")
+      (progn (setq cfg (QSD:Put "MBBLKTRUC" (QSD:MbBlkName e) cfg))
+             (QSD:Msg (strcat "   Block truc: " (QSD:MbBlkName e) "  (ten truc = thuoc tinh / text trong block)")))
+      (QSD:Msg "   Doi tuong khong phai block - bo qua.")))
+  (foreach it (append '(("MBLAYTRUC" "1 duong TRUC (lay layer)") ("MBLAYTENTRUC" "1 TEN TRUC dang text (lay layer) - co block thi Enter"))
+                      (if chitruc nil '(("MBLAYCOT" "1 COT (hoac vach)") ("MBLAYDAM" "1 NET DAM") ("MBLAYTEXT" "1 TEXT TEN DAM"))))
+    (if (setq e (QSD:PickEnt (strcat "\nChon " (cadr it) " <Enter = giu \"" (QSD:Cfg (car it)) "\">: ")))
+      (progn (setq ed (entget e) cfg (QSD:Put (car it) (cdr (assoc 8 ed)) cfg))
+             (QSD:Msg (strcat "   " (car it) " = " (cdr (assoc 8 ed)))))))
   (QSD:CfgSave cfg)
-  (QSD:Msg ">> Da luu layer nhan dang MBKC (QS_DAMSET trang 6 de sua / them mau layer)."))
+  (setq *QSD-CFG* cfg)
+  (QSD:Msg ">> Da luu mau nhan dang MBKC (sua / them o QS_DAMSET trang 6)."))
 
 (defun c:QS_DAMMB ( / *error* p1 p2 res data sups nm s k i su g)
   (defun *error* (msg)
@@ -3751,9 +3801,10 @@
   (QSD:CfgLoad)
   (setq p1 T)
   (while (= p1 T)
-    (initget "Mau")
-    (setq p1 (getpoint "\nDiem DAU dam tren MBKC (tren tim dam, ngoai goi dau) [Mau layer]: "))
-    (if (= p1 "Mau") (progn (QSD:MbMau) (setq p1 T))))
+    (initget "Truc Mau")
+    (setq p1 (getpoint "\nDiem DAU dam tren MBKC (tren tim dam, ngoai goi dau) [Truc (block + layer truc)/Mau (tat ca layer)]: "))
+    (cond ((= p1 "Truc") (QSD:MbMau T) (setq p1 T))
+          ((= p1 "Mau") (QSD:MbMau nil) (setq p1 T))))
   (if (and p1 (setq p2 (getpoint p1 "\nDiem CUOI dam (tren tim dam, ngoai goi cuoi): ")))
     (progn
       (setq res (QSD:MbScan (QSD:P2d (trans p1 1 0)) (QSD:P2d (trans p2 1 0))))
@@ -3834,7 +3885,7 @@
     ((= kind "B") (strcat "      : toggle { key = \"" k "\"; label = \"" lab "\"; }"))
     ((member kind '("M" "L"))
      (strcat "      : row { fixed_height = true; : text { label = \"" lab "\"; width = 44; } : popup_list { key = \"" k "\"; width = 26; } }"))
-    ((and (= kind "S") (wcmatch k "NEO?,MBLAY*"))
+    ((and (= kind "S") (wcmatch k "NEO?,MBLAY*,MBBLK*"))
      (strcat "      : text { label = \"" lab "\"; } : edit_box { key = \"" k "\"; edit_width = 70; edit_limit = 400; }"))
     (T (strcat "      : row { fixed_height = true; : text { label = \"" lab "\"; width = 44; } : edit_box { key = \"" k "\"; edit_width = 14; edit_limit = 200; } }"))))
 
@@ -4130,7 +4181,8 @@
       "                so le, noi chong theo bang mm / he so x d (trong / ngoai vung)"
       "             -> shop tren / duoi, bang thong ke doan cat + THONG KE DAI (moc theo cai dat), CSV."
       "QS_DAMMB   : tren MBKC pick diem DAU / CUOI tim dam -> tu nhan dang truc, goi (cot / vach / dam), dam phu,"
-      "             ten + b x h -> copy sheet MAU cua QS_DAM_NhapLieu.xlsx dang mo va ghi so lieu. [Mau] = pick layer."
+      "             ten + b x h -> copy sheet MAU cua QS_DAM_NhapLieu.xlsx dang mo va ghi so lieu."
+      "             [Truc] = chon block truc + pick layer truc / ten truc ; [Mau] = them layer cot, dam, text."
       "             Layer nhan dang / don vi ban ve: QS_DAMSET trang 6. Kiem tra lai so lieu tren Excel truoc khi ve."
       "QS_DAMSET  : cai dat 6 trang (Hien thi / Dai-Moc / Neo-Cho / Shop / Bo cuc shop / MBKC) + nut Bang L noi."
       "Bo cuc shop (trang 5): mac dinh giong DCE - shop TREN tren MC doc; duoi MC doc: dai THEP GIA sat tren"

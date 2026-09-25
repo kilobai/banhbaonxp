@@ -669,7 +669,9 @@ def build_help(wb):
                                "Lệnh tự nhận dạng: bề rộng b (nét biên dầm), gối (cột / vách cắt tim; đầu dầm gối lên dầm → '400x700'), trục + lệch trục,\n"
                                "dầm phụ trong nhịp (vị trí từ tim gối, b x h từ text), dầm giao tại cột, tên + b x h dầm từ text 'B137 (400x1000)'\n"
                                "→ copy sheet MAU thành sheet mới tên dầm và ghi F2:F4, dòng 11, 24–29. Thép chủ, tăng cường… nhập tiếp bằng tay.\n"
-                               "Layer nhận dạng: QS_DAMSET trang 6 hoặc tùy chọn [Mau] của lệnh. Luôn kiểm tra lại số liệu trước khi vẽ."),
+                               "Trục: tùy chọn [Truc] của lệnh → chọn BLOCK trục (tên trục = thuộc tính / text trong block / text trong bóng trục) → pick 1 đường trục (layer trục)\n"
+                               "→ pick 1 tên trục dạng text (layer tên trục, Enter nếu đã dùng block). [Mau] = thêm layer cột, dầm, text. Sửa ở QS_DAMSET trang 6.\n"
+                               "Luôn kiểm tra lại số liệu trước khi vẽ."),
         ("KÝ HIỆU THÉP", "3t28 = 3 thanh Ø28 (t, T, d, f, Ø, %%c đều được). 2t28+1t25 = nhiều loại. '-' = không có.\n"
                          "Gối: 3t28;5t28 = trái 3t28 / phải 5t28 ; ;2t28 = chỉ bên phải ; 2t25; = chỉ bên trái."),
         ("DÒNG 11 (B11 / lưới)", HELP_ROW[11]), ("DÒNG 12 (B12 / lưới)", HELP_ROW[12]),
