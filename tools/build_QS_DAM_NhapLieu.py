@@ -74,7 +74,7 @@ LISTS = {
     "CHOTHEP": ["Tat ca", "Chay suot"],
     "CHOL": ["AUTO", "40d", "50d", "1200", "0", "100", "100/300"],
     "KHONGCO": ["Khong", "Co"],
-    "DAICON": ["AUTO", "0", "2", "3", "2_3", "2_4", "2-4", "3,2_4", "2,4"],
+    "DAICON": ["AUTO", "0", "2", "3", "2_3", "2_4", "2-4", "3,2_4", "2,4", "4:2_3;5:3,2_4"],
     "TAISAN": ["2 ben", "Trai", "Phai", "Khong"],
 }
 LISTCOL = {k: CL(i + 1) for i, k in enumerate(LISTS)}
@@ -339,9 +339,9 @@ def build_sheet(wb, title, example):
             (4, "Đai con đi hết dầm", "KHONGCO", True,
              "Co = 1 khai báo (Y5) cho cả dầm.\nKhong = vùng gối (vùng đai dày 2 đầu nhịp) dùng Y5, vùng nhịp dùng Y6.\nTrống = theo QS_DAMSET trang 2."),
             (5, "Đai con toàn dầm / vùng gối", "DAICON", False,
-             "Theo số thứ tự thanh lớp 1 trên (trái → phải):\n3 = đai C tại thanh 3\n2_4 = đai Q (kín) ôm thanh 2..4\n2-4 = đai U thanh 2..4\nGhép: 3,2_4 · 0 = không có · AUTO/trống = tự động"),
+             "Theo số thứ tự thanh lớp 1 trên (trái → phải): 3 = đai C thanh 3 · 2_4 = đai Q ôm thanh 2..4 · 2-4 = đai U · ghép 3,2_4 · 0 = không có\nTheo số lượng thép: 4:2_3;5:3,2_4\nAUTO/trống = tra bảng QS_DAMSET trang 7"),
             (6, "Đai con vùng nhịp", "DAICON", False,
-             "Dùng khi Y4 = Khong. Cú pháp như Y5: 2 · 2_4 · 2-4 · 3,2_4 · 0 · AUTO")):
+             "Dùng khi Y4 = Khong. Cú pháp như Y5: 2 · 2_4 · 2-4 · 3,2_4 · 4:2_3;5:3,2_4 · 0 · AUTO")):
         ws.merge_cells(f"V{r}:X{r}")
         put(f"V{r}", lab, F(bold=True, size=9), C_LABEL, NOWRAP)
         for c in range(23, 25): ws.cell(r, c).border = B_ALL
@@ -352,7 +352,8 @@ def build_sheet(wb, title, example):
         "ĐAI CON (nhánh đai bên trong) theo vị trí thanh thép lớp 1 trên, đánh số 1..n từ trái sang phải:\n"
         "• 2 → đai C (1 nhánh) tại thanh số 2\n• 2_4 → đai Q (đai kín) ôm từ thanh 2 đến thanh 4\n"
         "• 2-4 → đai U từ thanh 2 đến thanh 4\n• ghép nhiều loại: 3,2_4 (đai C thanh 3 + đai Q thanh 2..4)\n"
-        "• 0 = không có đai con ; AUTO / trống = tự động (QS_DAMSET trang 2)\n"
+        "• 0 = không có đai con ; AUTO / trống = tra bảng theo số lượng thép (QS_DAMSET trang 7)\n"
+        "• theo số lượng thép riêng cho dầm: 4:2_3;5:3,2_4 (4 thanh → Q 2..3 ; 5 thanh → C 3 + Q 2..4)\n"
         "Vùng gối có gia cường nên số thanh khác vùng nhịp → Y4 = Khong để khai báo riêng vùng gối (Y5) và vùng nhịp (Y6).\n"
         "Chỉ số vượt số thanh thực tế được tự thu về thanh cuối.", "QS_DAM", width=440, height=190)
     for c in ("P", "Q", "R", "S", "T", "V", "W", "X", "Y"):
@@ -696,7 +697,9 @@ def build_help(wb):
                                "Luôn kiểm tra lại số liệu trước khi vẽ."),
         ("ĐAI CON (Y4:Y6)", "Nhánh đai bên trong theo số thứ tự thanh lớp 1 trên (1..n từ trái sang phải): 2 = đai C tại thanh 2 ; 2_4 = đai Q (kín) ôm thanh 2..4 ;\n"
                             "2-4 = đai U thanh 2..4 ; ghép 3,2_4 ; 0 = không có ; AUTO / trống = tự động.\n"
-                            "Y4 = Co: Y5 áp dụng cả dầm. Y4 = Khong: Y5 cho vùng gối (vùng đai dày 2 đầu nhịp), Y6 cho vùng nhịp. Trống = QS_DAMSET trang 2.\n"
+                            "Theo số lượng thép (số thanh lớp 1 trên tại mặt cắt): 4:2_3;5:3,2_4 ; số thanh không có trong bảng → bảng QS_DAMSET trang 7.\n"
+                            "AUTO / trống → bảng QS_DAMSET trang 7 (2 … 10 thanh) ; bảng ghi AUTO → tự động cũ (1 nhánh mỗi thanh giữa khi ≥ 4 thanh).\n"
+                            "Y4 = Co: Y5 áp dụng cả dầm. Y4 = Khong: Y5 cho vùng gối (vùng đai dày 2 đầu nhịp), Y6 cho vùng nhịp. Trống = QS_DAMSET trang 7.\n"
                             "Đường kính / bước đai con = đai trong dòng 27 nếu có, không thì theo đai chính của vùng."),
         ("KÝ HIỆU THÉP", "3t28 = 3 thanh Ø28 (t, T, d, f, Ø, %%c đều được). 2t28+1t25 = nhiều loại. '-' = không có.\n"
                          "Gối: 3t28;5t28 = trái 3t28 / phải 5t28 ; ;2t28 = chỉ bên phải ; 2t25; = chỉ bên trái."),
