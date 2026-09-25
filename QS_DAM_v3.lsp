@@ -4535,7 +4535,7 @@
             (set_tile "MSG" msg)
             (mode_tile "B2" (if *QSD-MB* 0 1)) (mode_tile "B3" (if *QSD-MB* 0 1))
             (mode_tile "BV" (if *QSD-MB* 0 1)) (mode_tile "BX" (if *QSD-MB* 0 1))
-            (foreach k '(("B1" . 1) ("B2" . 2) ("B3" . 3) ("BV" . 4) ("BS" . 5) ("BX" . 6)))
+            (foreach k '(("B1" . 1) ("B2" . 2) ("B3" . 3) ("BV" . 4) ("BS" . 5) ("BX" . 6))
               (action_tile (car k) (strcat "(done_dialog " (itoa (cdr k)) ")")))
             (setq r (start_dialog) msg "")
             (cond
@@ -4556,7 +4556,7 @@
                (setq data (QSD:MbToCells *QSD-MB*) lst (QSD:MbExcel data (QSD:Get "NAME" *QSD-MB*)))
                (setq msg (if lst (strcat "Da ghi sheet Excel: " lst) "Chua ghi duoc Excel - xem dong lenh.")))
               (T (setq run nil))))))
-      (unload_dialog id) (vl-file-delete fn))
+      (unload_dialog id) (vl-file-delete fn)))
   (redraw)
   (princ))
 
