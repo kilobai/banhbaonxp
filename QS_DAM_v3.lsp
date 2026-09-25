@@ -241,7 +241,7 @@
   (list "DOLECHSHOP" "650" "KC mep MC doc -> khung shop TREN (mm)"         "Z")
   (list "KCSHOPDUOI" "650" "KC mep MC doc -> khung shop DUOI (mm)"         "Z")
   (list "SHOPGIA" "RIENG" "Shop thep GIA: dai rieng / gop duoi / gop tren" "L" '("RIENG" "DUOI" "TREN"))
-  (list "GIACAT"  "SOLE2" "Cat thep GIA: 2 thanh noi so le / 1 thanh"     "L" '("SOLE2" "1THANH"))
+  (list "GIACAT"  "NOIDUOI" "Cat thep GIA: noi duoi tu do (L cay) / 1 thanh" "L" '("NOIDUOI" "1THANH"))
   (list "HOIDIEM" "0"     "Hoi diem dat shop (0 = tu dong theo bo cuc)"    "B")
   (list "SHOPDAI" "PHAITREN" "Vi tri shop thep dai"                        "L" '("PHAITREN" "PHAIDUOI" "DUOI" "KHONG"))
   (list "DAIKCKHUNG" "810" "Shop dai: KC khung shop -> hinh dau (mm)"     "Z")
@@ -2270,6 +2270,20 @@
 ;;  "UN"/"UT"   dai U bao / U trong (ho tren), moc 2 dau huong vao trong
 ;;  "C"         thep / dai C nam ngang dai w, dir 1 = moc len, -1 = moc xuong ; d >= BEMOCC -> thanh thang
 ;;  o = do lech nhanh chong (ve thay 2 nhanh; 0 = trung nhau, dung tinh chieu dai)
+;; dai 1 nhanh o MC ngang giong DCE: nhanh dung sat trai thanh lop 1 tren (tam xc, yT), moc tren vong qua
+;; dinh thanh (cung GOC1N, ban kinh = r thanh + r dai) roi duoi thang LMOC1N ; duoi: vong 90 do duoi thanh lop 1
+;; duoi, chan ngang LCHAN1N sang phai
+(defun QSD:DrawL1 (xc yT dT yB d / R a0 ae pA pT xl)
+  (setq R (/ (+ dT d) 2.0) xl (- xc R) a0 (QSD:Deg (- 180.0 (QSD:CfgN "GOC1N"))))
+  (setq pA (list (+ xc (* R (cos a0))) (+ yT (* R (sin a0))))
+        pT (QSD:PAdd pA (list (sin a0) (- (cos a0))) (QSD:HookLen "LMOC1N" d)))
+  (QSD:PL (list (list (car pT) (cadr pT) 0.0)
+                (list (car pA) (cadr pA) (/ (sin (/ (- pi a0) 4.0)) (cos (/ (- pi a0) 4.0))))
+                (list xl yT 0.0)
+                (list xl yB (/ (sin (/ pi 8.0)) (cos (/ pi 8.0))))
+                (list (+ xl R) (- yB R) 0.0)
+                (list (+ xl R (QSD:HookLen "LCHAN1N" d)) (- yB R) 0.0))
+          "QS_ThepDai" nil 0.0))
 ;; chieu cao tim dai 1 nhanh / dai C doc: om ngoai thanh lop 1 tren (d1) va lop 1 duoi (d2), phi dai d
 (defun QSD:L1H (yT yB d1 d2 d) (+ (- yT yB) (/ (+ d1 d2) 2.0) d))
 (defun QSD:ShpPts (kind w h d dir o / ang lh lc s0 pts hk)
@@ -2476,8 +2490,7 @@
         (if (= (car it) "C")
           (progn
             (setq xt (- (+ bcx (QSD:BarXi (cadr it) nL1 xe1)) (/ dL1 2.0) (/ (car inner) 2.0)))
-            (QSD:ShpDraw (QSD:ShpPts "L1" 0.0 (QSD:L1H yT1 yB1 dL1 dB1 (car inner)) (car inner) 1.0 0.0) 0.0
-                         (QSD:L1H yT1 yB1 dL1 dB1 (car inner)) xt (- yB1 (/ (+ dB1 (car inner)) 2.0)) "QS_ThepDai")
+            (QSD:DrawL1 (+ xt (/ (+ dL1 (car inner)) 2.0)) yT1 dL1 yB1 (car inner))
             (QSD:PL (list (list xt yt2) (list tagR yt2)) "QS_Dim" nil 0.0)
             (setq ncl (nth 3 it)))
           (progn
@@ -2500,8 +2513,7 @@
         (setq nb (max 3 nL1) k 1 yt2 (+ (- cy h) (* 0.45 h)))
         (repeat (- nb 2)
           (setq xt (- (+ bcx (- xe1) (* k (/ (* 2.0 xe1) (1- nb)))) (/ dL1 2.0) (/ (car inner) 2.0)))
-          (QSD:ShpDraw (QSD:ShpPts "L1" 0.0 (QSD:L1H yT1 yB1 dL1 dB1 (car inner)) (car inner) 1.0 0.0) 0.0
-                         (QSD:L1H yT1 yB1 dL1 dB1 (car inner)) xt (- yB1 (/ (+ dB1 (car inner)) 2.0)) "QS_ThepDai")
+          (QSD:DrawL1 (+ xt (/ (+ dL1 (car inner)) 2.0)) yT1 dL1 yB1 (car inner))
           (QSD:PL (list (list xt yt2) (list tagR yt2)) "QS_Dim" nil 0.0)
           (setq k (1+ k)))
         (QSD:Insert "Dce_KhtMcThepTangCuong" tagR yt2 tn "QS_Block"
@@ -2529,7 +2541,7 @@
           (setq y (if (>= (length p) 2) (/ (+ yA (nth 2 (nth (- (length p) 2) p))) 2.0)
                                         (if (= tp "T") (- yA (/ dl 2.0)) (+ yA (/ dl 2.0)))))
           ;; giong DCE: thanh thang lot giua 2 lop, dai het be rong dai
-          (QSD:PL (list (list xSL y) (list xSR y)) "QS_ThepDai" nil 0.0)
+          (QSD:PL (list (list xSL y) (list xSR y)) "QS_ThepDai" nil 25.0)      ; global width 25
           (if (QSD:CfgB "TAGCDO")
             (progn
               (setq yl (if (= tp "T") (+ cy (* 3 tn) (* 5 tn (max 1 ncT))) (- cy h (* 3 tn) (* 5 tn (max 1 ncB)))))
@@ -3013,7 +3025,7 @@
         (if tc (setq es (append es (list e)) laps (append laps (list Lp)) s (- e Lp))))
       (list es flag laps))))
 
-(defun QSD:CutRec (beam rec / tp d n x1 x2 lL lR Lb zx zt Lp Lp2 gap nA nB pa pb fb res fx)
+(defun QSD:CutRec (beam rec / tp d n x1 x2 lL lR Lb zx zt Lp Lp2 gap nA nB pa pb fb res fx zA zt2 pa2 pb2)
   (setq tp (nth 2 rec) d (nth 3 rec) n (nth 4 rec) x1 (nth 6 rec) x2 (nth 7 rec)
         lL (abs (nth 8 rec)) lR (abs (nth 9 rec)) *QSD-CUTTP* tp)
   (setq Lb (+ lL (- x2 x1) lR))
@@ -3041,25 +3053,50 @@
         (progn
           (setq fb (mapcar '(lambda (e l) (list (- e l gap) (+ e gap Lp))) (car pa) (caddr pa)))
           (setq pb (QSD:CutSeg Lb zt Lp Lp2 fb fx))
+          ;; khong so le duoc trong vung noi (vung ngan hon 2 L noi + khe): thu lai ca 2 nhom voi vung noi
+          ;; mo rong LECHNOI, roi mo rong vua du (Lp + khe) -> ghi chu "NOI SO LE LECH VUNG"
+          (if (= (cadr pb) "SOLE")
+            (foreach tol (list (QSD:CfgN "LECHNOI") (+ Lp gap))
+              (if (and (> tol 0) (= (cadr pb) "SOLE"))
+                (progn
+                  (setq zt2 (mapcar '(lambda (z) (list (max 0.0 (- (car z) tol)) (min Lb (+ (cadr z) tol)))) zt)
+                        zA (vl-remove-if '(lambda (z) (<= (cadr z) (+ (car z) Lp))) (mapcar '(lambda (z) (list (+ (car z) Lp gap) (cadr z))) zt2)))
+                  (setq pa2 (QSD:CutSeg Lb zA Lp Lp2 nil fx))
+                  (if (null (cadr pa2))
+                    (progn
+                      (setq fb (mapcar '(lambda (e l) (list (- e l gap) (+ e gap Lp))) (car pa2) (caddr pa2)))
+                      (setq pb2 (QSD:CutSeg Lb zt2 Lp Lp2 fb fx))
+                      (if (null (cadr pb2))
+                        (setq pa pa2 pb (list (car pb2) (if (> tol (QSD:CfgN "LECHNOI")) "LECH" nil) (caddr pb2))
+                              res (list (list nA (QSD:Pieces Lb (car pa) (caddr pa)) (car pa) (cadr pb)))))))))))
           (setq res (append res (list (list nB (QSD:Pieces Lb (car pb) (caddr pb)) (car pb) (cadr pb)))))))
       res)))))
 
-;; thep GIA: chi 2 cach cat (QS_DAMSET GIACAT)
-;;  1THANH : 1 thanh het chieu dai (dai hon cay thep -> canh bao "DAI")
-;;  SOLE2  : 2 thanh noi chong giua dam, nhom A / B lech nhau (Lp + khe) -> noi so le ; qua ngan -> 1 thanh
-(defun QSD:CutGia (Lb Lp gap n / r nA nB c e fl)
-  (setq r (QSD:CfgN "RNDCAT"))
-  (defun QSD:_g1 (q c / e fl)
-    (setq e (QSD:RoundDn (+ c (/ Lp 2.0)) r))
-    (setq fl (if (> (max e (- Lb (- e Lp))) (+ (QSD:LMax) 1e-6)) "DAI" nil))
-    (list q (QSD:Pieces Lb (list e) (list Lp)) (list e) fl))
+;; thep GIA: 2 cach cat (QS_DAMSET GIACAT)
+;;  NOIDUOI : cat tu do - thanh dai toi da (L cay / L mac dinh) noi duoi nhau, khong xet vung noi ;
+;;            nhom A cat tu trai, nhom B cat tu phai (moi noi tu so le) ; doan cuoi ngan < LMIN -> chia bot doan truoc
+;;  1THANH  : 1 thanh het chieu dai (dai hon cay thep -> canh bao "DAI")
+(defun QSD:CutGia (Lb Lp gap n / nA nB)
   (cond
-    ((or (= (QSD:Cfg "GIACAT") "1THANH") (< Lb (+ Lp gap (* 2.0 (QSD:CfgN "LMIN")))))
+    ((or (= (QSD:Cfg "GIACAT") "1THANH") (<= Lb (+ (QSD:LMax) 1e-6)))
      (list (list n (list (list 0.0 Lb)) nil (if (> Lb (+ (QSD:LMax) 1e-6)) "DAI" nil))))
     ((> n 1)
-     (setq nA (QSD:Ceil (/ n 2.0)) nB (- n nA) c (/ (+ Lp gap) 2.0))
-     (list (QSD:_g1 nA (- (/ Lb 2.0) c)) (QSD:_g1 nB (+ (/ Lb 2.0) c))))
-    (T (list (QSD:_g1 n (/ Lb 2.0))))))
+     (setq nA (QSD:Ceil (/ n 2.0)) nB (- n nA))
+     (list (QSD:GiaChain nA Lb Lp nil) (QSD:GiaChain nB Lb Lp T)))
+    (T (list (QSD:GiaChain n Lb Lp nil)))))
+;; cat noi duoi: doan dai Lm, noi Lp ; rev = T cat tu dau phai -> (qty pieces es nil)
+(defun QSD:GiaChain (q Lb Lp rev / Lm lmin s es laps e pcs)
+  (setq Lm (QSD:LMax) lmin (QSD:CfgN "LMIN") s 0.0 es nil laps nil)
+  (while (> (- Lb s) (+ Lm 1e-6))
+    (setq e (+ s Lm))
+    ;; doan con lai qua ngan -> rut ngan doan nay
+    (if (< (- Lb (- e Lp)) lmin) (setq e (- (+ Lb Lp) lmin)))
+    (setq es (append es (list e)) laps (append laps (list Lp)) s (- e Lp)))
+  (setq pcs (QSD:Pieces Lb es laps))
+  (if rev
+    (setq pcs (reverse (mapcar '(lambda (p) (list (- Lb (cadr p)) (- Lb (car p)))) pcs))
+          es (mapcar '(lambda (p) (cadr p)) (reverse (cdr (reverse pcs))))))
+  (list q pcs es nil))
 
 ;; noi cac doan thanh cung so hieu / loai / phi / cao do, khe ho <= KCJOIN (thanh bi ve tach doan)
 (defun QSD:JoinRecs (recs / kc out done a b m)
@@ -3204,10 +3241,11 @@
                         ey eyn ent lp e1 flag din xm txt pc2 sh2 ylo xlo xhi tps side x0 sg kd)
   (setq tl (QSD:TL) ltot (QSD:Get "L" beam) n (length rows)
         dn (QSD:RowsLeg rows -1.0) up (QSD:RowsLeg rows 1.0))
-  (setq pitch (max (* 20.0 tl) (+ (max dn up) 95.0)))
+  ;; khoang hang gon (giong DCE): du cho chu dim tren thanh, tag + dim noi / neo duoi thanh va chan be
+  (setq pitch (max (* 11.0 tl) (+ (max dn up) (* 5.0 tl))))
   (if (= dir 1)
-    (setq yb yBase y0 (+ yBase dn (* 12 tl) (* pitch (1- n))) yt (+ y0 up (* 25 tl)))
-    (setq yt yBase y0 (- yBase up (* 25 tl)) yb (- y0 (* pitch (1- n)) dn (* 15 tl))))
+    (setq yb yBase y0 (+ yBase dn (* 9 tl) (* pitch (1- n))) yt (+ y0 up (* 5 tl)))
+    (setq yt yBase y0 (- yBase up (* 5 tl)) yb (- y0 (* pitch (1- n)) dn (* 9 tl))))
   (setq din (if (= tp "T") -1.0 1.0))
   ;; khung + o nhan (mo rong khi co thep cho 2 dau)
   (setq xlo -370.0 xhi ltot)
@@ -3299,6 +3337,7 @@
         (QSD:Text (- (nth 6 rec) (* 3 tl)) y (cond ((= flag "SOLE") "KHONG SO LE DUOC")
                                                   ((= flag "PHUCTAP") "HINH PHUC TAP - CHUA CAT")
                                                   ((= flag "DAI") "DAI HON CAY THEP")
+                                                  ((= flag "LECH") "NOI SO LE - LECH RA NGOAI VUNG NOI")
                                                   (T "NOI NGOAI VUNG CHO PHEP"))
                   (* 2.0 tl) "QS_Symbol" "R" 0.0)))
     (setq k (1+ k)))
@@ -4712,7 +4751,7 @@
    ("CONGDOAN" . "Cong doan thang (bo qua uon)") ("TIM" . "Theo tim (tru uon)")
    ("1NHANH" . "1 nhanh / thanh giua (DCE)") ("KIN" . "Dai kin om thanh 2, n-1")
    ("TREN" . "Tren") ("DUOI" . "Duoi") ("RIENG" . "Dai rieng (nhu DCE)")
-   ("SOLE2" . "2 thanh, noi so le") ("1THANH" . "1 thanh (khong cat)")
+   ("NOIDUOI" . "Noi duoi tu do (L cay)") ("1THANH" . "1 thanh (khong cat)")
    ("PHAITREN" . "Ben phai shop TREN") ("PHAIDUOI" . "Ben phai shop DUOI") ("PHAI" . "Ben phai shop")))
 (defun QSD:LLab (v / p) (if (setq p (assoc v *QSD-LLAB*)) (cdr p) v))
 (defun QSD:Opts (k / d) (setq d (assoc k *QSD-DEF*)) (if (= (nth 3 d) "M") (mapcar 'car *QSD-MODES*) (nth 4 d)))
