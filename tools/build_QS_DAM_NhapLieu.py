@@ -3,7 +3,7 @@
 
 Vi tri o NHAP LIEU giu dung nhu DCE_Pro_Beam (F2:F8, J2:J8, N2:N8, B11, B12, C11:AG30) de
 QS_DAM.lsp doc bang bo doc DCE; phan mo rong (V2.1): thep cho / khoan cay S3:T8, tai san / san lat Y2:Y3,
-ten dam theo nhip dong 31, dai con dong 33..38 (thay cho khoi kiem tra hinh hoc / As cu), kiem tra dong 40..41.
+ten dam theo nhip dong 31, dai con dong 33..39 (thay cho khoi kiem tra hinh hoc / As cu), kiem tra dong 41..42.
 """
 import sys
 from openpyxl import Workbook
@@ -76,6 +76,7 @@ LISTS = {
     "CHOL": ["AUTO", "40", "50d", "1200", "0", "100", "100/300", "15d", "300mm"],
     "KHONGCO": ["Khong", "Co"],
     "DAICON": ["AUTO", "0", "2", "3", "2_3", "2_4", "2-4", "3,2_4", "2,4", "2_5", "4,2_6"],
+    "DAICONC": ["2", "3", "2,3", "2,4", "3,4", "2,5", "0"],
     "TAISAN": ["2 ben", "Trai", "Phai", "Khong"],
 }
 LISTCOL = {k: CL(i + 1) for i, k in enumerate(LISTS)}
@@ -502,15 +503,15 @@ def build_sheet(wb, title, example):
         for c in range(2, CLAST + 1): ws.cell(r, c).fill = FILL(C_SEC); ws.cell(r, c).border = B_ALL
         ws.row_dimensions[r].height = 18
 
-    section(32, "ĐAI CON – NHÁNH ĐAI BÊN TRONG theo vị trí thanh lớp 1 trên (đánh số 1..n từ trái sang phải) · ô trống = theo QS_DAMSET trang 7")
+    section(32, "ĐAI CON – NHÁNH ĐAI BÊN TRONG theo vị trí thanh lớp 1 trên (đánh số 1..n từ trái sang phải) · trống = đai trong tự động")
     CON = [(33, "Đai con đi hết dầm", "KHONGCO", True,
-            "Co = khai báo ô C34 áp dụng cả dầm · Khong = C34 cho vùng gối (vùng đai dày 2 đầu nhịp), C35 cho vùng nhịp · trống = QS_DAMSET"),
+            "Co / trống = khai báo ô C34 áp dụng cả dầm · Khong = C34 cho vùng gối (vùng đai dày 2 đầu nhịp), C35 cho vùng nhịp"),
            (34, "Đai con toàn dầm / vùng gối", "DAICON", False,
-            "3 = đai C (1 nhánh) tại thanh 3 · 2_4 = đai Q (kín) ôm thanh 2..4 · 2-4 = đai U · ghép 3,2_4 · 0 = không có · AUTO / trống = tra bảng dòng 38"),
+            "3 = đai C (1 nhánh) tại thanh 3 · 2_4 = đai Q (kín) ôm thanh 2..4 · 2-4 = đai U · ghép 3,2_4 · 0 = không có · AUTO / trống = tra bảng dòng 38 + 39"),
            (35, "Đai con vùng nhịp", "DAICON", False,
             "Dùng khi C33 = Khong. Cú pháp như C34."),
            (36, "Tra bảng theo số lượng thép", "KHONGCO", True,
-            "Co = khi C34 / C35 là AUTO / trống: tra bảng dòng 38 theo số thanh lớp 1 trên tại mặt cắt (ô trống → bảng QS_DAMSET trang 7) · Khong = đai trong tự động cũ")]
+            "Co / trống = khi C34 / C35 là AUTO / trống: tra bảng dòng 38 (đai C) + 39 (đai U / Q) theo số thanh lớp 1 trên tại mặt cắt · Khong / ô bảng trống = đai trong tự động")]
     for r, lab, lst, strict, hlp in CON:
         ws.merge_cells(f"A{r}:B{r}")
         put(f"A{r}", lab, F(bold=True, size=9), C_LABEL, LEFT)
@@ -527,41 +528,46 @@ def build_sheet(wb, title, example):
     ws.merge_cells("A37:B37")
     put("A37", "Số thanh lớp 1 trên", F(bold=True, size=9), C_GOIHDR, LEFT)
     ws.merge_cells("A38:B38")
-    put("A38", "Nhánh đai con theo số thanh", F(bold=True, size=9), C_LABEL, LEFT)
-    for r in (37, 38): ws.cell(r, 2).border = B_ALL; ws.row_dimensions[r].height = 20
+    put("A38", "Đai C (1 nhánh) theo số thanh", F(bold=True, size=9), C_LABEL, LEFT)
+    ws.merge_cells("A39:B39")
+    put("A39", "Đai U / Q theo số thanh", F(bold=True, size=9), C_LABEL, LEFT)
+    for r in (37, 38, 39): ws.cell(r, 2).border = B_ALL; ws.row_dimensions[r].height = 20
     for n in range(2, 31):
         c = C0 + n - 2
         put(f"{CL(c)}37", n, F(bold=True, size=9), C_GOIHDR)
-        put(f"{CL(c)}38", None, F(bold=True, size=9, color="0000FF"), "FFFFFF")
-        ws[f"{CL(c)}38"].number_format = "@"
+        for r in (38, 39):
+            put(f"{CL(c)}{r}", None, F(bold=True, size=9, color="0000FF"), "FFFFFF")
+            ws[f"{CL(c)}{r}"].number_format = "@"
     for c in range(C0 + 29, CLAST + 1):
-        put(f"{CL(c)}37", "", None, C_NA); put(f"{CL(c)}38", "", None, C_NA)
-    dv("CON38", [f"{CL(C0 + n - 2)}38" for n in range(2, 31)], "Đai con theo số thanh",
-       "Số thanh lớp 1 trên ở dòng 37.\n2 = đai C thanh 2 · 2_3 = đai Q thanh 2..3 · 2-4 = đai U · 3,2_4 · 0 = không · trống = QS_DAMSET trang 7", "DAICON")
+        for r in (37, 38, 39): put(f"{CL(c)}{r}", "", None, C_NA)
+    dv("CON38", [f"{CL(C0 + n - 2)}38" for n in range(2, 31)], "Đai C theo số thanh",
+       "Số thanh lớp 1 trên ở dòng 37.\nĐai C (1 nhánh) tại thanh: 2 · 2,4 · 2_4 (= C tại thanh 2, 3, 4) · 0 = không · trống = không có đai C", "DAICONC")
+    dv("CON39", [f"{CL(C0 + n - 2)}39" for n in range(2, 31)], "Đai U / Q theo số thanh",
+       "2_4 = đai Q (kín) ôm thanh 2..4 · 2-4 = đai U · ghép 2_3,4_5 · số đơn (vd 2) = đai C tại thanh 2 · trống = không có", "DAICON")
     ws["A32"].comment = Comment(
         "ĐAI CON (nhánh đai bên trong) theo vị trí thanh thép lớp 1 trên, đánh số 1..n từ trái sang phải:\n"
         "• 2 → đai C (1 nhánh) tại thanh số 2\n• 2_4 → đai Q (đai kín) ôm từ thanh 2 đến thanh 4\n"
         "• 2-4 → đai U từ thanh 2 đến thanh 4\n• ghép nhiều loại: 3,2_4 (đai C thanh 3 + đai Q thanh 2..4)\n"
-        "• 0 = không có đai con ; AUTO / trống = tra bảng dòng 38 (số thanh ở dòng 37) → bảng QS_DAMSET trang 7\n"
+        "• 0 = không có đai con ; AUTO / trống = tra bảng: dòng 38 đai C + dòng 39 đai U / Q (số thanh ở dòng 37)\n"
         "Vùng gối có gia cường nên số thanh khác vùng nhịp → C33 = Khong để khai báo riêng vùng gối (C34) và vùng nhịp (C35).\n"
         "Chỉ số vượt số thanh thực tế được tự thu về thanh cuối. QS_DAMXL ghi lại khối này từ dầm đã vẽ.", "QS_DAM", width=460, height=190)
 
-    # ================= DONG 40..41: KIEM TRA SO LIEU =================
-    section(40, "KIỂM TRA SỐ LIỆU")
-    ws.merge_cells("A41:B41")
-    put("A41", "Kết quả kiểm tra từng cột", F(bold=True, size=9), C_CALC, LEFT)
-    ws.cell(41, 2).border = B_ALL
-    ws.row_dimensions[41].height = 27
+    # ================= DONG 41..42: KIEM TRA SO LIEU =================
+    section(41, "KIỂM TRA SỐ LIỆU")
+    ws.merge_cells("A42:B42")
+    put("A42", "Kết quả kiểm tra từng cột", F(bold=True, size=9), C_CALC, LEFT)
+    ws.cell(42, 2).border = B_ALL
+    ws.row_dimensions[42].height = 27
     for c in range(C0, CLAST + 1):
-        put(f"{CL(c)}41", None, F(bold=True, size=9, color="404040"), C_CALC)
+        put(f"{CL(c)}42", None, F(bold=True, size=9, color="404040"), C_CALC)
     for c in range(C0, CLAST + 1):
         L = CL(c); goi = c in GCOLS; A = lambda nm: h(nm, c)
         if goi:
-            ws[f"{L}41"] = (f'=IF({A("ACT")}=0,"",IF({A("W")}="","Thiếu KT gối",IF({L}26="","Thiếu tên trục",'
+            ws[f"{L}42"] = (f'=IF({A("ACT")}=0,"",IF({A("W")}="","Thiếu KT gối",IF({L}26="","Thiếu tên trục",'
                             f'IF({A("BAD")}>0,"Sai KH thép","OK"))))')
         else:
             gap = f'AND({CL(c - 2)}${H["ACT"]}=0,{A("ACT")}=1)' if c > C0 + 1 else "FALSE"
-            ws[f"{L}41"] = (f'=IF({A("ACT")}=0,IF({L}11="","","Sai Ltt"),IF({gap},"Nhịp đứt quãng",'
+            ws[f"{L}42"] = (f'=IF({A("ACT")}=0,IF({L}11="","","Sai Ltt"),IF({gap},"Nhịp đứt quãng",'
                             f'IF({L}26="","Thiếu đai",IF({A("BAD")}>0,"Sai KH thép","OK"))))')
 
     # dong 9: tong hop
@@ -569,18 +575,18 @@ def build_sheet(wb, title, example):
     nspan = f"SUMPRODUCT((MOD(COLUMN({rngACT}),2)=0)*{rngACT})"
     total = f"SUMIF({rngACT},1,{FIRST}{H['W']}:{LAST}{H['W']})"
     a11 = as_area_expr("$B$%d" % H["NB11"]); a12 = as_area_expr("$B$%d" % H["NB12"])
-    nerr = (f'SUMPRODUCT(({FIRST}41:{LAST}41<>"")*({FIRST}41:{LAST}41<>"OK"))'
+    nerr = (f'SUMPRODUCT(({FIRST}42:{LAST}42<>"")*({FIRST}42:{LAST}42<>"OK"))'
             f'+(({a11})=0)+(({a12})=0)')
     ws["C9"] = (f'=IF({nspan}=0,"Chưa có nhịp: nhập bề rộng gối + L thông thủy ở dòng 11",'
                 f'IF({nerr}=0,"✔  Số liệu hợp lệ – "&{nspan}&" nhịp, tổng chiều dài dầm L = "&FIXED({total},0)&" mm",'
-                f'"✖  Có "&({nerr})&" lỗi – xem dòng 41 (KIỂM TRA SỐ LIỆU) và ô B11 / B12"))')
+                f'"✖  Có "&({nerr})&" lỗi – xem dòng 42 (KIỂM TRA SỐ LIỆU) và ô B11 / B12"))')
 
     # ================= DINH DANG CO DIEU KIEN =================
     grid = f"{FIRST}11:{LAST}31"
     # cot khong dung (ngoai so nhip) -> xam; chua lai 1 nhip trong ke tiep de nhap them
     inact = f'{FIRST}${H["SHOW"]}=0'
     ws.conditional_formatting.add(grid, FormulaRule(formula=[inact], fill=FILL("BFBFBF"), font=Font(color="7F7F7F"), stopIfTrue=True))
-    ws.conditional_formatting.add(f"{FIRST}41:{LAST}41", FormulaRule(formula=[f'{FIRST}${H["ACT"]}=0'], fill=FILL("D9D9D9")))
+    ws.conditional_formatting.add(f"{FIRST}42:{LAST}42", FormulaRule(formula=[f'{FIRST}${H["ACT"]}=0'], fill=FILL("D9D9D9")))
     # o thep sai ky hieu -> do
     for r in range(13, 23):
         nm = next(n for n, s in layers if s == r)
@@ -589,14 +595,14 @@ def build_sheet(wb, title, example):
     for a, nm in (("B11", "NB11"), ("B12", "NB12")):
         ws.conditional_formatting.add(a, FormulaRule(formula=['(%s)=0' % as_area_expr("$B$%d" % H[nm])], fill=FILL("FF7C80")))
     # ket qua kiem tra
-    rg = f"{FIRST}41:{LAST}41"
-    ws.conditional_formatting.add(rg, FormulaRule(formula=[f'{FIRST}41="OK"'], fill=FILL("C6EFCE"), font=Font(bold=True, color="006100")))
-    ws.conditional_formatting.add(rg, FormulaRule(formula=[f'AND({FIRST}41<>"",{FIRST}41<>"OK")'], fill=FILL("FFC7CE"), font=Font(bold=True, color="9C0006")))
+    rg = f"{FIRST}42:{LAST}42"
+    ws.conditional_formatting.add(rg, FormulaRule(formula=[f'{FIRST}42="OK"'], fill=FILL("C6EFCE"), font=Font(bold=True, color="006100")))
+    ws.conditional_formatting.add(rg, FormulaRule(formula=[f'AND({FIRST}42<>"",{FIRST}42<>"OK")'], fill=FILL("FFC7CE"), font=Font(bold=True, color="9C0006")))
     ws.conditional_formatting.add("C9", FormulaRule(formula=['LEFT($C$9,1)="✖"'], fill=FILL("C00000")))
     ws.conditional_formatting.add("C9", FormulaRule(formula=['LEFT($C$9,1)="✔"'], fill=FILL("00B050")))
 
     ws.freeze_panes = "C11"
-    ws.print_area = f"A1:{LAST}41"
+    ws.print_area = f"A1:{LAST}42"
     ws.page_setup.orientation = "landscape"
     ws.page_setup.paperSize = ws.PAPERSIZE_A3
     ws.sheet_properties.pageSetUpPr.fitToPage = True
@@ -632,7 +638,7 @@ def build_help(wb):
     rows = [
         ("CÁCH DÙNG", "1. Mỗi dầm 1 sheet: chuột phải sheet MAU (hoặc sheet ví dụ) → Move or Copy → Create a copy, đổi tên theo dầm.\n"
                       "2. Nhập ô trắng. Chọn ô sẽ hiện gợi ý; ô có ▼ có danh sách chọn (vẫn gõ tay được, trừ ô bắt buộc chọn).\n"
-                      "3. Xem dòng 9 (TÌNH TRẠNG SỐ LIỆU) và dòng 41 (KIỂM TRA) – sửa hết ô đỏ.\n"
+                      "3. Xem dòng 9 (TÌNH TRẠNG SỐ LIỆU) và dòng 42 (KIỂM TRA) – sửa hết ô đỏ.\n"
                       "4. AutoCAD / ZWCAD: để sheet dầm cần vẽ ĐANG MỞ trong Excel → lệnh QS_VEDAM → nguồn Excel → chọn điểm mép TRÊN-TRÁI dầm.\n"
                       "5. QS_SHOPDAM: cắt thép / shop. QS_DAMSET, QS_DAMNOI: cài đặt móc đai, neo, chiều dài nối.\n"
                       "6. QS_DAMXL: quét chọn tên dầm (hoặc thép) các dầm ĐÃ VẼ → ghi lại toàn bộ số liệu (kể cả đai con, thép chờ, tên nhịp)\n"
@@ -644,7 +650,7 @@ def build_help(wb):
                             "  thanh (Tat ca / Chay suot / TỰ ĐIỀN T:3t28;B:2t25), L chờ / sâu khoan (AUTO / 40 = 40d / 1200 mm; coupler 0 / 100 / 100/300 so le),\n"
                             "  so le, dòng 8 = tên dầm chờ nối hoặc ghi chú khoan cấy.\n"
                             "• TÙY CHỌN SÀN (Y2:Y3): tai sàn 2 ben / Trai / Phai / Khong, sàn lật – dùng khi F7 chỉ là số (nhập mã DCE 150/1, _150 thì bỏ qua Y2:Y3).\n"
-                            "• Dòng 31: tên dầm theo nhịp (ghi dưới MC dọc). Dòng 32–38: ĐAI CON. Dòng 41 + dòng 9: báo thiếu KT gối, thiếu tên trục,\n"
+                            "• Dòng 31: tên dầm theo nhịp (ghi dưới MC dọc). Dòng 32–39: ĐAI CON. Dòng 42 + dòng 9: báo thiếu KT gối, thiếu tên trục,\n"
                             "  thiếu đai, Ltt sai, nhịp đứt quãng, ký hiệu thép sai (ô thép sai tô đỏ)."),
         ("THÉP CHỜ TRÊN BẢN VẼ", "• QS_VEDAM: nét khuất dầm zone sau, đường MẠCH NGỪNG, dim L chờ (chờ thẳng) hoặc ký hiệu COUPLER.\n"
                                  "• QS_SHOPDAM: thanh chờ thẳng được cắt đủ chiều dài có đoạn chờ; dải shop có đường MẠCH NGỪNG; đầu thanh coupler vẽ ký hiệu,\n"
@@ -663,11 +669,12 @@ def build_help(wb):
                                "Bảng bên phải: trục + độ lệch, bề rộng gối, Ltt, tên nhịp, dầm giao + vị trí từ tim gối → nút Ghi Excel:\n"
                                "copy sheet MAU thành sheet tên dầm, ghi F2:F4, dòng 11, 12 (b nhịp khác), 24–29, 31 (tên dầm từng nhịp).\n"
                                "Layer / block trục, cột, dầm, text: QS_DAMSET trang 6 (nút Pick < lấy từ bản vẽ, + Pick thêm). Luôn kiểm tra lại số liệu trước khi vẽ."),
-        ("ĐAI CON (dòng 32–38)", "Nhánh đai bên trong theo số thứ tự thanh lớp 1 trên (1..n từ trái sang phải): 2 = đai C tại thanh 2 ; 2_4 = đai Q (kín) ôm thanh 2..4 ;\n"
+        ("ĐAI CON (dòng 32–39)", "Nhánh đai bên trong theo số thứ tự thanh lớp 1 trên (1..n từ trái sang phải): 2 = đai C tại thanh 2 ; 2_4 = đai Q (kín) ôm thanh 2..4 ;\n"
                             "2-4 = đai U thanh 2..4 ; ghép 3,2_4 ; 0 = không có ; AUTO / trống = tra bảng.\n"
                             "C33 = Co: C34 áp dụng cả dầm. C33 = Khong: C34 cho vùng gối (vùng đai dày 2 đầu nhịp), C35 cho vùng nhịp.\n"
-                            "C36 = Co: tra bảng dòng 38 theo số thanh lớp 1 trên tại mặt cắt (2 … 30 thanh, dòng 37); ô trống → bảng QS_DAMSET trang 7.\n"
-                            "Ô trống ở C33:C36 = theo QS_DAMSET trang 7. Đường kính / bước đai con = đai trong dòng 27 nếu có, không thì theo đai chính."),
+                            "C36 = Co / trống: tra bảng theo số thanh lớp 1 trên tại mặt cắt (2 … 30 thanh, dòng 37): dòng 38 = ĐAI C (2,4 ; 2_4 = C tại thanh 2..4),\n"
+                            "dòng 39 = ĐAI U / Q (2_4 = Q, 2-4 = U ; số đơn = đai C). Hai dòng cộng lại. Ô trống / C36 = Khong = đai trong tự động (QS_DAMSET trang 2).\n"
+                            "Đường kính / bước đai con = đai trong dòng 27 nếu có, không thì theo đai chính. (Trang 7 QS_DAMSET đã bỏ – đai con chỉ khai trên Excel.)"),
         ("KÝ HIỆU THÉP", "3t28 = 3 thanh Ø28 (t, T, d, f, Ø, %%c đều được). 2t28+1t25 = nhiều loại. '-' = không có.\n"
                          "Gối: 3t28;5t28 = trái 3t28 / phải 5t28 ; ;2t28 = chỉ bên phải ; 2t25; = chỉ bên trái."),
         ("DÒNG 11 (B11 / lưới)", HELP_ROW[11]), ("DÒNG 12 (B12 / lưới)", HELP_ROW[12]),
