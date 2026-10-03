@@ -10320,7 +10320,9 @@
       (foreach rec records
         (setq parts (QS-TachKT rec ";") item (if (nth 2 parts) (handent (nth 2 parts))))
         (if (or (null item) (not (member item bars)) (member item ids))
-          (setq problem "BAR handle khong hop le/trung lap.")
+          (setq problem (strcat "BAR handle khong hop le/trung lap (hang " (vl-princ-to-string (nth 1 parts)) ", handle "
+                                (vl-princ-to-string (nth 2 parts)) ": "
+                                (cond ((null item) "khong ton tai") ((member item ids) "trung") (T "khong thuoc nhom")) ")."))
           (progn
             (setq ids (cons item ids) pts (QS-DinhDuong item) oldpts nil)
             (foreach coords (cdddr parts)
@@ -15465,6 +15467,37 @@
         (setq n (1+ n)))
       r)))
 
+;; v1.3.5: hang BAR trong tag tro SAI handle (nhom copy / dan / WBLOCK sang ban ve khac, noi lai chua du) ->
+;; sua handle theo CHI SO thanh (V3;1;BAR;gid;idx tren thanh = BAR;idx;... trong tag). Giu nguyen toa do luu.
+;; -> so hang da sua
+(defun QS-V3SuaHang (root / tag data recs au bars hd item parts e new out n others)
+  (foreach r (QS-S23Read root) (if (= (substr r 1 4) "TAG;") (setq tag (handent (substr r 5)))))
+  (if (and tag (entget tag) (setq data (QS-S23Read tag)) (setq au (QS-V3Audit root)) (null (cadr au)))
+    (progn
+      (foreach item (nth 2 au)
+        (setq hd (QS-TachKT (car (QS-S23Read item)) ";"))
+        (if (= (nth 2 hd) "BAR") (setq bars (cons (cons (nth 4 hd) item) bars))))
+      (setq recs (QS-V3RecordParts (cdr data)) n 0)
+      (foreach rec recs
+        (setq parts (QS-TachKT rec ";") e (cdr (assoc (nth 1 parts) bars)))
+        (if (and e (/= (nth 2 parts) (QS-NLH e)))
+          (progn
+            (setq n (1+ n))
+            (setq new (strcat (nth 0 parts) ";" (nth 1 parts) ";" (QS-NLH e)))
+            (foreach x (cdddr parts) (setq new (strcat new ";" x)))
+            (setq out (append out (QS-ChiaChuoi new 240))))
+          (setq out (append out (QS-ChiaChuoi rec 240)))))
+      (if (> n 0)
+        (progn
+          (setq others (vl-remove-if '(lambda (x) (or (= (substr x 1 4) "BAR;")
+                                        (and (> (strlen x) 0)
+                                             (not (member (car (QS-TachKT x ";"))
+                                               '("ROOT" "GROUP" "SOURCE" "MEMBER" "PARAM" "TAG" "ENVELOPE" "CUT_SOURCE"))))))
+                                     (cdr data)))
+          (QS-NLGhiApp tag "QS_BT_V3" (append (list (car data)) out others))
+          (OS-Log "OS_UDTHEPSAN" (strcat "Nhom bao " (QS-NLH root) ": sua " (itoa n) " handle thanh trong tag theo chi so"))))
+      n)))
+
 ;; Nhom V3: thanh bi sua so voi hinh luu trong tag = thanh dai dien da keo -> ap do doi len cac thanh con lai.
 ;; -> nil (khong thanh nao doi) | "thong bao" (bo qua) | (T so-thanh dThap dCao)
 (defun QS-V3KeoDai (root / tag data recs parts e lst x y p kd np ds q r repNew chg cur)
@@ -15582,6 +15615,7 @@
               (OS-Log "OS_UDTHEPSAN" (strcat "Rai lai bao " (QS-NLH root) " bo qua: " (vl-princ-to-string (cadr r)))))))
         (T
          (if (null (QS-V3SigDoc root)) (setq nSig (1+ nSig)))
+         (vl-catch-all-apply 'QS-V3SuaHang (list root))
          (vl-catch-all-apply 'QS-V3DichLuu (list root))
          ;; v1.3.5: thanh dai dien bi keo dai / thu ngan -> cong don do doi vao moi thanh con lai
          (setq r (vl-catch-all-apply 'QS-V3KeoDai (list root)))
