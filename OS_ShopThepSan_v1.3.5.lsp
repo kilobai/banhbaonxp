@@ -10312,6 +10312,8 @@
     ((or (not (numberp rnd)) (< rnd 1)) (list nil '("Buoc lam tron phai >= 1.")))
     (T
       (setq root (car audit))
+      ;; v1.3.5: hang BAR trong tag tro sai handle (nhom copy sang ban ve khac) -> sua theo chi so thanh truoc khi doc
+      (vl-catch-all-apply 'QS-V3SuaHang (list root))
       (foreach item (nth 2 audit)
         (setq hd (QS-TachKT (car (QS-S23Read item)) ";"))
         (if (= (nth 2 hd) "SOLE") (setq tag item))
