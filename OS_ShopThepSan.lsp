@@ -1,4 +1,4 @@
-;;  OS_ShopThepSan.lsp  -  SHOP THEP SAN  -  Phien ban 1.3.6  (DCL tu sinh)
+;;  OS_ShopThepSan.lsp  -  SHOP THEP SAN  -  Phien ban 1.3.7  (DCL tu sinh)
 ;;  Tac gia : Nguyen Xuan Phat
 ;;  Email   : banhbaonxp@gmail.com
 ;;  SDT     : 0898010995
@@ -6,6 +6,8 @@
 ;;  Ten lenh: OS_xxx, kem lenh tat khong tien to (vd THEPSAN = OS_THEPSAN). Layer / XDATA giu ten QS_ cu
 ;;  de doc duoc ban ve da ve truoc day.
 ;;
+;;  v1.3.7 - NOI LAI sau COPY / DAN: thanh AN khong nam trong tap chon nen bi roi khoi nhom ("nhom 1 thanh", tag con 12 hang)
+;;           -> OS_UDTHEPSAN / OS_NOILAITHEP luon quet ca doi tuong an (moi doi tuong QS_BT_V3 trong ban ve).
 ;;  v1.3.6 - Nhom copy sang ban ve khac: hang BAR trong tag tro sai handle -> OS_UDTHEPSAN / CAPNHATBT3 tu sua theo chi
 ;;           so thanh (QS-V3SuaHang), in thong bao [SUA HANG] ro ket qua / ly do.
 ;;  v1.3.5 - OS_UDTHEPSAN: KEO DAI / THU NGAN thanh dai dien (STRETCH / grip dau THAN thanh, vd SH 1.8; dau moc tinh tien
@@ -517,7 +519,7 @@
         (list
 
           "qs_vethepdce : dialog {"
-          (strcat "  label = " q "Shop thep san  |  OS_VETHEP - Ve thanh thep     (v1.3.6)" q ";")
+          (strcat "  label = " q "Shop thep san  |  OS_VETHEP - Ve thanh thep     (v1.3.7)" q ";")
           (strcat "  initial_focus = " q "duongkinh" q ";")
           (QS-DCL-TX "Nhap thong so, bam OK roi pick cac diem tren ban ve.   (*) = bat buoc")
           "  spacer;"
@@ -580,7 +582,7 @@
           "}"
           ""
           "qs_capnhatthep : dialog {"
-          (strcat "  label = " q "Shop thep san  |  OS_CAPNHATTHEP - Cap nhat thep     (v1.3.6)" q ";")
+          (strcat "  label = " q "Shop thep san  |  OS_CAPNHATTHEP - Cap nhat thep     (v1.3.7)" q ";")
           "  spacer;"
           (QS-DCL-TX "Chon che do cap nhat. O thong so de trong = giu nguyen gia tri cua tung thanh.")
           "  spacer;"
@@ -617,7 +619,7 @@
           "}"
           ""
           "qs_dimthep : dialog {"
-          (strcat "  label = " q "Shop thep san  |  OS_DIMTHEP - Ghi kich thuoc tung doan thep     (v1.3.6)" q ";")
+          (strcat "  label = " q "Shop thep san  |  OS_DIMTHEP - Ghi kich thuoc tung doan thep     (v1.3.7)" q ";")
           (strcat "  initial_focus = " q "dcao" q ";")
           "  spacer;"
           (QS-DCL-TX "Ghi chieu dai TUNG DOAN thanh thep bang dim da an duong giong, duong kich thuoc")
@@ -650,7 +652,7 @@
           "}"
           ""
           "qs_thepsan : dialog {"
-          (strcat "  label = " q "Shop thep san  |  OS_THEPSAN - Thep san QS_BT_V3     (v1.3.6)" q ";")
+          (strcat "  label = " q "Shop thep san  |  OS_THEPSAN - Thep san QS_BT_V3     (v1.3.7)" q ";")
           (strcat "  initial_focus = " q "sd" q ";")
           (QS-DCL-TX "Quet mep san (hoac VUNG SAN) + mat trong dam + lo mo -> tu rai thep, tinh neo / be ke, gop 1 thanh dai dien.")
           (QS-DCL-TX "Chieu day, cao do va huong rai rieng lay tu VUNG SAN (lenh OS_VUNGSAN).   (*) = bat buoc")
@@ -759,7 +761,7 @@
           "}"
           ""
           "qs_catthep : dialog {"
-          (strcat "  label = " q "Shop thep san  |  OS_CATTHEP - Cat / noi thep theo chieu dai cay     (v1.3.6)" q ";")
+          (strcat "  label = " q "Shop thep san  |  OS_CATTHEP - Cat / noi thep theo chieu dai cay     (v1.3.7)" q ";")
           (strcat "  initial_focus = " q "ccay" q ";")
           (QS-DCL-TX "Thanh dai hon 1 cay duoc cat thanh nhieu doan noi chong, danh so hieu phu SH.1, SH.2 ...  Nhom QS_BT_V3 cat bang bo cat V3.")
           "  spacer;"
@@ -855,7 +857,7 @@
           "}"
           ""
           "qs_mbtk : dialog {"
-          (strcat "  label = " q "Shop thep san  |  OS_MBTK - Ve lai mat bang ket cau tu ban thiet ke     (v1.3.6)" q ";")
+          (strcat "  label = " q "Shop thep san  |  OS_MBTK - Ve lai mat bang ket cau tu ban thiet ke     (v1.3.7)" q ";")
           "  : row { alignment = top;"
           (QS-DCL-COL 44)
           (QS-DCL-BOX "  1. Layer thiet ke -> layer QS  ")
@@ -933,7 +935,7 @@
           "}"
           ""
           "qs_lomo : dialog {"
-          (strcat "  label = " q "Shop thep san  |  OS_GIACUONGLOMO - Thep gia cuong lo mo san     (v1.3.6)" q ";")
+          (strcat "  label = " q "Shop thep san  |  OS_GIACUONGLOMO - Thep gia cuong lo mo san     (v1.3.7)" q ";")
           (QS-DCL-TX "Nhan polyline KIN (lo 4 goc) va polyline HO (2 - 3 canh, lo o mep san).")
           (QS-DCL-TX "Day / Lech cua TAG, DIM tinh theo so lan cao chu (so am = lech nguoc lai).")
           "  : row {"
@@ -3880,7 +3882,7 @@
     (princ)
   )
 
-  (princ "\n[OS_ShopThepSan v1.3.6]")
+  (princ "\n[OS_ShopThepSan v1.3.7]")
   (princ "\n=== OS_THEPSAN - TU DONG BO TRI THEP SAN ===")
   (setq *QS-V3-LOI* 0)
   (setq doc (QS-Doc) spc (QS-Space doc))
@@ -8973,7 +8975,7 @@
     (princ)
   )
 
-  (princ "\n[OS_ShopThepSan v1.3.6]")
+  (princ "\n[OS_ShopThepSan v1.3.7]")
   (princ "\n=== OS_GIACUONGLOMO - THEP GIA CUONG QUANH LO MO SAN ===")
   (setq doc (QS-Doc) spc (QS-Space doc))
   (vla-StartUndoMark doc)
@@ -9739,7 +9741,7 @@
       (princ (strcat "\n[Loi] " msg)))
     (princ)
   )
-  (princ "\n[OS_ShopThepSan v1.3.6]")
+  (princ "\n[OS_ShopThepSan v1.3.7]")
   (setq doc (QS-Doc))
   (vla-StartUndoMark doc)
   (QS-VeTheoMau)
@@ -10162,7 +10164,7 @@
       (princ (strcat "\n[Loi] " msg)))
     (princ)
   )
-  (princ "\n[OS_ShopThepSan v1.3.6]")
+  (princ "\n[OS_ShopThepSan v1.3.7]")
   (setq doc (QS-Doc))
   (vla-StartUndoMark doc)
   (if (null *QS1-TKTL*) (setq *QS1-TKTL* "100"))
@@ -10171,7 +10173,7 @@
   (princ)
 )
 
-(princ "\nDa nap SHOP THEP SAN (OS_ShopThepSan) v1.3.6 - Tac gia: Nguyen Xuan Phat - banhbaonxp@gmail.com - 0898010995")
+(princ "\nDa nap SHOP THEP SAN (OS_ShopThepSan) v1.3.7 - Tac gia: Nguyen Xuan Phat - banhbaonxp@gmail.com - 0898010995")
 (princ "\nBo lenh:")
 (princ)
 
@@ -11222,7 +11224,7 @@
       (foreach L
         (list
           "qs_vungsan : dialog {"
-          (strcat "  label = " q "Shop thep san  |  OS_VUNGSAN - Vung san: chieu day, cao do, huong rai     (v1.3.6)" q ";")
+          (strcat "  label = " q "Shop thep san  |  OS_VUNGSAN - Vung san: chieu day, cao do, huong rai     (v1.3.7)" q ";")
           (strcat "  initial_focus = " q "vshs" q ";")
           (QS-DCL-TX "Moi vung san = 1 polyline KIN mang thong so. OS_THEPSAN doc truc tiep tu polyline.   (*) = bat buoc")
           "  spacer;"
@@ -11623,7 +11625,7 @@
     (if (and msg (not (wcmatch (strcase msg) "*BREAK*,*CANCEL*,*QUIT*")))
       (princ (strcat "\n[Loi] " msg)))
     (princ))
-  (princ "\n[OS_ShopThepSan v1.3.6]  OS_VUNGSAN - VUNG SAN (CHIEU DAY / CAO DO / HUONG RAI)")
+  (princ "\n[OS_ShopThepSan v1.3.7]  OS_VUNGSAN - VUNG SAN (CHIEU DAY / CAO DO / HUONG RAI)")
   (QSVS-MacDinh)
   (QSVS-Reg)
   (setq *QSVS-CE* (getvar "CMDECHO") *QSVS-OS* (getvar "OSMODE"))
@@ -15075,7 +15077,7 @@
     (progn (princ (strcat "\n[Loi] Khong ghi duoc file tam: " fn)) nil)
     (progn
       (write-line "shopthep : dialog {" f)
-      (write-line (strcat "  label = " q "Shop thep san  |  SHOPTHEP - Bang dieu khien thep     (v1.3.6)" q ";") f)
+      (write-line (strcat "  label = " q "Shop thep san  |  SHOPTHEP - Bang dieu khien thep     (v1.3.7)" q ";") f)
       (write-line (QS-DCL-TX "Bam 1 nut de chay lenh. Thu tu nhom = thu tu lam viec: chuan bi -> ve -> gop -> cat -> cap nhat.") f)
       (write-line "  spacer;" f)
       (write-line "  : row {" f)
@@ -15128,7 +15130,7 @@
         (setq *QSH-DCL* nil lap nil))
       (progn
         (set_tile "lap" *QSH-LAP*)
-        (set_tile "shinfo" (strcat "OS_ShopThepSan v1.3.6  -  " (itoa (length ds)) " lenh."))
+        (set_tile "shinfo" (strcat "OS_ShopThepSan v1.3.7  -  " (itoa (length ds)) " lenh."))
         (setq rc 100)
         (foreach it ds
           (setq rc (1+ rc))
@@ -16074,11 +16076,17 @@
       (distance p (list (+ (car a) (* t0 (- (car b) (car a)))) (+ (cadr a) (* t0 (- (cadr b) (cadr a)))))))))
 
 ;; Noi lai tat ca trong tap chon ss -> (nV3ok nV3 nTag nRai)
-(defun QS-NoiLaiThep (ss / i e lst a b)
+(defun QS-NoiLaiThep (ss / i e lst a b sx)
   (setq i 0)
   (while (and ss (< i (sslength ss)))
     (setq e (ssname ss i) i (1+ i))
     (if (entget e) (setq lst (cons e lst))))
+  ;; v1.3.7: THANH AN cua nhom V3 khong bao gio nam trong tap chon (cua so / chon bang tay khong lay duoc doi tuong an)
+  ;; -> them moi doi tuong QS_BT_V3 trong ban ve de nhom duoc noi lai DAY DU (neu khong, thanh an bi roi khoi nhom)
+  (setq sx (ssget "_X" '((-3 ("QS_BT_V3")))) i 0)
+  (while (and sx (< i (sslength sx)))
+    (setq e (ssname sx i) i (1+ i))
+    (if (and (entget e) (not (and ss (ssmemb e ss)))) (setq lst (cons e lst))))
   (setq a (QS-NLNhomV3 lst) b (QS-NLThuong lst))
   (append a b))
 
