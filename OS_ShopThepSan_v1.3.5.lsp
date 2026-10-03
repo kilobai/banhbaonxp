@@ -6,8 +6,8 @@
 ;;  Ten lenh: OS_xxx, kem lenh tat khong tien to (vd THEPSAN = OS_THEPSAN). Layer / XDATA giu ten QS_ cu
 ;;  de doc duoc ban ve da ve truoc day.
 ;;
-;;  v1.3.5 - OS_UDTHEPSAN: KEO DAI / THU NGAN thanh dai dien (STRETCH / grip dau thanh, vd SH 1.8) -> do doi cua tung
-;;           dau duoc CONG DON vao dau tuong ung cua moi thanh con lai trong nhom (V3 va V4), chieu dai bien thien giu
+;;  v1.3.5 - OS_UDTHEPSAN: KEO DAI / THU NGAN thanh dai dien (STRETCH / grip dau THAN thanh, vd SH 1.8; dau moc tinh tien
+;;           theo) -> do doi cua tung dau than duoc CONG DON vao dau tuong ung cua moi thanh con lai trong nhom (V3 va V4), chieu dai bien thien giu
 ;;           nguyen (keo +1000 -> moi thanh +1000, keo -1000 -> moi thanh -1000), tag L=min~max va duong bao cap nhat.
 ;;           Sua DUONG BAO / khoang rai thi van RAI LAI tung thanh theo duong bao nhu cu (chay truoc).
 ;;  v1.3.4 - OS_CATTHEP: NHOM KIEU CU (thanh dai dien + tag + dim rai + vong tron + bao Defpoints kin, khong co
@@ -15413,47 +15413,63 @@
   dem)
 
 ;; ---------- v1.3.5: KEO DAI / THU NGAN THANH DAI DIEN -> CAP NHAT CA NHOM (OS_UDTHEPSAN)
-;; Anh keo (STRETCH / grip) dau thanh dai dien (vd SH 1.8): UDTHEPSAN so voi hinh da luu, lay do doi cua
-;; tung dau (dich dau thap / dau cao theo huong thanh) roi CONG DON dung do doi do vao dau tuong ung cua MOI
-;; thanh con lai trong nhom (keo ra +1000 -> moi thanh dai them 1000 o dau do; keo vao -1000 -> bot 1000).
-;; Chieu dai khac nhau giua cac thanh (bien thien) duoc GIU NGUYEN. Neu anh sua DUONG BAO / khoang rai thi
-;; nhanh rai lai theo duong bao chay truoc, khong ap dung keo dai.
-;; old / cur: dinh thanh dai dien luc luu / hien tai -> nil | "thong bao" | (dThap dCao u0)
-(defun QS-KDTinh (old cur / n u0 v0 i o c d ok dF dL lowF)
+;; Anh keo (STRETCH / grip) dau THAN thanh dai dien (vd SH 1.8): UDTHEPSAN so voi hinh da luu, lay do doi cua
+;; tung dau than (doan dai nhat; dau thap / dau cao theo huong thanh) roi CONG DON dung do doi do vao dau
+;; tuong ung cua MOI thanh con lai (keo ra +1000 -> moi thanh dai them 1000 o dau do; keo vao -1000 -> bot 1000).
+;; Dau moc (neo) cua tung thanh TINH TIEN theo dau than -> giu nguyen goc / chieu dai moc. Chieu dai khac nhau
+;; giua cac thanh (bien thien) duoc GIU NGUYEN. Sua DUONG BAO / khoang rai thi rai lai theo bao (chay truoc).
+(defun QS-KDIm (pts / i best im a)
+  (setq i 0 best -1.0 im 0)
+  (while (< i (1- (length pts)))
+    (if (> (setq a (distance (nth i pts) (nth (1+ i) pts))) best) (setq best a im i))
+    (setq i (1+ i)))
+  im)
+
+;; dich cac dinh: phia dau (chi so <= doan dai nhat) theo dau thap / cao tuy huong -> dinh moi | nil (than qua ngan / dao chieu)
+(defun QS-KDShift (pts dLow dHigh u0 / n im a b lf dS dE i out p d)
+  (setq n (length pts) im (QS-KDIm pts) a (nth im pts) b (nth (1+ im) pts)
+        lf (<= (QS-B2Dot a u0) (QS-B2Dot b u0))
+        dS (if lf dLow dHigh) dE (if lf dHigh dLow) i 0)
+  (foreach p pts
+    (setq d (if (<= i im) dS dE))
+    (setq out (cons (list (+ (car p) (* d (car u0))) (+ (cadr p) (* d (cadr u0)))) out) i (1+ i)))
+  (setq out (reverse out))
+  (if (and (> (abs (- (QS-B2Dot (nth (1+ im) out) u0) (QS-B2Dot (nth im out) u0))) 1.0)
+           (eq lf (<= (QS-B2Dot (nth im out) u0) (QS-B2Dot (nth (1+ im) out) u0))))
+    out))
+
+;; old / cur: dinh thanh dai dien luc luu / hien tai -> nil (khong keo / khong ho tro) | (dThap dCao u0)
+(defun QS-KDTinh (old cur / n im u0 v0 i o c d s ok dS dE lowF)
   (setq n (length old))
   (if (and (>= n 2) (= n (length cur)))
     (progn
-      (setq u0 (QS-V3HuongChuan old) v0 (list (- (cadr u0)) (car u0)) ok T i 0)
+      (setq im (QS-KDIm old)
+            u0 (QS-V3HuongChuan (list (nth im old) (nth (1+ im) old))) v0 (list (- (cadr u0)) (car u0))
+            ok T
+            c (nth im cur) o (nth im old) d (list (- (car c) (car o)) (- (cadr c) (cadr o)))
+            dS (QS-B2Dot d u0))
+      (if (> (abs (QS-B2Dot d v0)) 0.05) (setq ok nil))
+      (setq c (nth (1+ im) cur) o (nth (1+ im) old) d (list (- (car c) (car o)) (- (cadr c) (cadr o)))
+            dE (QS-B2Dot d u0))
+      (if (> (abs (QS-B2Dot d v0)) 0.05) (setq ok nil))
+      ;; cac dinh con lai (dau moc): dung yen, hoac dich cung do voi phia cua no
+      (setq i 0)
       (foreach c cur
-        (setq o (nth i old) d (list (- (car c) (car o)) (- (cadr c) (cadr o))))
-        (cond
-          ((or (= i 0) (= i (1- n)))
-           (if (> (abs (QS-B2Dot d v0)) 0.05) (setq ok nil)))
-          ((> (distance '(0.0 0.0) d) 0.05) (setq ok nil)))
+        (if (and ok (/= i im) (/= i (1+ im)))
+          (progn
+            (setq o (nth i old) d (list (- (car c) (car o)) (- (cadr c) (cadr o))) s (if (<= i im) dS dE))
+            (if (not (or (< (distance '(0.0 0.0) d) 0.05)
+                         (< (distance d (list (* s (car u0)) (* s (cadr u0)))) 0.05)))
+              (setq ok nil))))
         (setq i (1+ i)))
-      (if ok
+      (if (and ok (or (> (abs dS) 0.05) (> (abs dE) 0.05)))
         (progn
-          (setq dF (QS-B2Dot (list (- (car (car cur)) (car (car old))) (- (cadr (car cur)) (cadr (car old)))) u0)
-                dL (QS-B2Dot (list (- (car (last cur)) (car (last old))) (- (cadr (last cur)) (cadr (last old)))) u0)
-                lowF (<= (QS-B2Dot (car old) u0) (QS-B2Dot (last old) u0)))
-          (if (and (< (abs dF) 0.05) (< (abs dL) 0.05)) nil
-            (list (if lowF dF dL) (if lowF dL dF) u0)))))))
-
-;; ap do doi (dThap dCao) len dau thap / dau cao cua 1 thanh -> dinh moi | nil (thanh bi ngan qua / lat chieu)
-(defun QS-KDAp (pts dLow dHigh u0 / a b lf da db pa pb)
-  (setq a (car pts) b (last pts) lf (<= (QS-B2Dot a u0) (QS-B2Dot b u0))
-        da (if lf dLow dHigh) db (if lf dHigh dLow)
-        pa (list (+ (car a) (* da (car u0))) (+ (cadr a) (* da (cadr u0))))
-        pb (list (+ (car b) (* db (car u0))) (+ (cadr b) (* db (cadr u0)))))
-  (if (and (> (abs (- (QS-B2Dot pb u0) (QS-B2Dot pa u0))) 1.0)
-           (eq lf (<= (QS-B2Dot pa u0) (QS-B2Dot pb u0))))
-    (append (list pa)
-            (mapcar '(lambda (q) (list (car q) (cadr q))) (reverse (cdr (reverse (cdr pts)))))
-            (list pb))))
+          (setq lowF (<= (QS-B2Dot (nth im old) u0) (QS-B2Dot (nth (1+ im) old) u0)))
+          (list (if lowF dS dE) (if lowF dE dS) u0))))))
 
 ;; Nhom V3: so thanh dai dien (hien tai) voi hinh luu trong tag -> ap do doi len cac thanh con lai.
 ;; -> nil (khong keo) | "thong bao" (bo qua) | (T so-thanh dThap dCao)
-(defun QS-V3KeoDai (root / tag data recs parts e lst rep repH old cur kd x np ds n q r)
+(defun QS-V3KeoDai (root / tag data recs parts e lst rep repH old cur kd x np ds n q r repNew)
   (foreach r (QS-S23Read root) (if (= (substr r 1 4) "TAG;") (setq tag (handent (substr r 5)))))
   (if (and tag (entget tag) (setq data (QS-S23Read tag)))
     (progn
@@ -15467,53 +15483,57 @@
         (progn
           (setq old (cadr rep) cur (mapcar '(lambda (q) (list (car q) (cadr q))) (QS-DinhDuong (car rep))))
           (setq kd (QS-KDTinh old cur))
-          (if (listp kd)
-            (if (null kd) nil
-              (progn
-                ;; cac thanh con lai phai con nguyen hinh luu (khong bi sua rieng)
-                (foreach x lst
-                  (if (and (null (stringp kd)) (not (equal (car x) (car rep))))
-                    (progn
-                      (setq cur (mapcar '(lambda (q) (list (car q) (cadr q))) (QS-DinhDuong (car x))) n 0)
-                      (if (/= (length cur) (length (cadr x))) (setq kd (strcat "thanh " (caddr x) " da doi so dinh"))
-                        (progn
-                          (foreach q cur
-                            (if (> (distance q (nth n (cadr x))) 0.05) (setq kd (strcat "thanh " (caddr x) " da bi sua rieng")))
-                            (setq n (1+ n))))))))
-                (if (stringp kd) kd
+          (if (null kd) nil
+            (progn
+              ;; cac thanh con lai phai con nguyen hinh luu (khong bi sua rieng)
+              (foreach x lst
+                (if (and (listp kd) (not (equal (car x) (car rep))))
                   (progn
-                    (foreach x lst
-                      (if (and (listp kd) (not (equal (car x) (car rep))))
-                        (progn
-                          (if (QS-LayerBiKhoa (car x)) (setq kd (strcat "thanh " (caddr x) " nam tren layer khoa"))
-                            (setq np (QS-KDAp (mapcar '(lambda (q) (list (car q) (cadr q))) (QS-DinhDuong (car x)))
-                                              (car kd) (cadr kd) (caddr kd))))
-                          (if (and (listp kd) (null np)) (setq kd (strcat "thanh " (caddr x) " bi ngan qua / dao chieu"))
-                            (if (listp kd) (setq ds (cons (cons (car x) np) ds)))))))
-                    (if (stringp kd) kd
+                    (setq cur (mapcar '(lambda (q) (list (car q) (cadr q))) (QS-DinhDuong (car x))) n 0)
+                    (if (/= (length cur) (length (cadr x))) (setq kd (strcat "thanh " (caddr x) " da doi so dinh"))
+                      (foreach q cur
+                        (if (> (distance q (nth n (cadr x))) 0.05) (setq kd (strcat "thanh " (caddr x) " da bi sua rieng")))
+                        (setq n (1+ n)))))))
+              (if (stringp kd) kd
+                (progn
+                  (setq repNew (QS-KDShift old (car kd) (cadr kd) (caddr kd)))
+                  (if (null repNew) (setq kd "thanh dai dien bi ngan qua / dao chieu"))
+                  (foreach x lst
+                    (if (and (listp kd) (not (equal (car x) (car rep))))
                       (progn
-                        (foreach x ds (QS-RLDatDinh (car x) (cdr x)))
-                        (list T (length ds) (car kd) (cadr kd))))))))
-            kd))))))
+                        (setq np nil)
+                        (if (QS-LayerBiKhoa (car x)) (setq kd (strcat "thanh " (caddr x) " nam tren layer khoa"))
+                          (setq np (QS-KDShift (mapcar '(lambda (q) (list (car q) (cadr q))) (QS-DinhDuong (car x)))
+                                               (car kd) (cadr kd) (caddr kd))))
+                        (if (and (listp kd) (null np)) (setq kd (strcat "thanh " (caddr x) " bi ngan qua / dao chieu"))
+                          (if (listp kd) (setq ds (cons (cons (car x) np) ds)))))))
+                  (if (stringp kd) kd
+                    (progn
+                      (foreach x ds (QS-RLDatDinh (car x) (cdr x)))
+                      ;; thanh dai dien: dau moc tinh tien theo dau than (neu anh chi keo dinh than)
+                      (QS-RLDatDinh (car rep) repNew)
+                      (list T (length ds) (car kd) (cadr kd)))))))))))))
 
 ;; Nhom V4: dua hinh thanh dai dien da keo vao cac hang luu (truoc khi doi sang V3) -> rows moi / rows cu
-(defun QS-V4KeoDai (rep rows repi / rr old cur kd nr ok r pts)
+(defun QS-V4KeoDai (rep rows repi / rr old cur kd nr ok r pts repNew)
   (setq rr (assoc repi rows))
   (if (null rr) rows
     (progn
       (setq old (mapcar '(lambda (q) (list (car q) (cadr q))) (cadr rr))
             cur (mapcar '(lambda (q) (list (car q) (cadr q))) (QS-DinhDuong rep))
             kd (QS-KDTinh old cur))
-      (if (and kd (listp kd))
+      (if kd
         (progn
-          (setq ok T nr nil)
+          (setq ok T nr nil repNew (QS-KDShift old (car kd) (cadr kd) (caddr kd)))
+          (if (null repNew) (setq ok nil))
           (foreach r rows
             (if (= (car r) repi) (setq nr (cons r nr))
               (progn
-                (setq pts (QS-KDAp (mapcar '(lambda (q) (list (car q) (cadr q))) (cadr r)) (car kd) (cadr kd) (caddr kd)))
+                (setq pts (QS-KDShift (mapcar '(lambda (q) (list (car q) (cadr q))) (cadr r)) (car kd) (cadr kd) (caddr kd)))
                 (if pts (setq nr (cons (cons (car r) (cons pts (cddr r))) nr)) (setq ok nil)))))
           (if ok
             (progn
+              (QS-RLDatDinh rep repNew)
               (setq *QS-KD-N* (1+ (if *QS-KD-N* *QS-KD-N* 0)))
               (princ (strcat "\n  [KEO DAI V4] thanh " (QS-NLH rep) ": dau thap " (rtos (car kd) 2 1) ", dau cao " (rtos (cadr kd) 2 1)
                              " mm -> ap cho " (itoa (1- (length rows))) " thanh con lai."))
